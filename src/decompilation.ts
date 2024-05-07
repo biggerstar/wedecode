@@ -7,7 +7,7 @@ import {JSDOM} from "jsdom";
 import vkbeautify from 'vkbeautify'
 import {deepmerge} from "@biggerstar/deepmerge";
 import {arrayDeduplication, commonDir, getPathInfo, jsBeautify, printLog, replaceExt, sleep} from "./common";
-import {glob} from "glob";
+import {glob, globSync} from "glob";
 import process from "node:process";
 import {tryWxml} from "./lib/wuWxml";
 import {getZ} from "./lib/wuRestoreZ";
@@ -16,11 +16,14 @@ import {getZ} from "./lib/wuRestoreZ";
  * HOOK 增加的全局变量   DecompilationWXS  DecompilationModules
  * */
 export class DecompilationMicroApp {
-  public readonly pathInfo: ReturnType<typeof getPathInfo>
   public readonly fileList: any[]
+  public pathInfo: ReturnType<typeof getPathInfo>
   public wxsList: any[]
-  public allRefComponentList: string[]
-  public allSubPackagePages: string[]
+  public packPath: string
+  public packType: 'main' | 'child'   // 主包还是分包
+  public allRefComponentList: string[] = []
+  public allSubPackagePages: string[] = []
+  public outputDir: string   // 指定输出目录， 分解多包的时候， 该地址正常指定为主包目录
   public DecompilationModules: {
     modules: Record<string, Record<any, any> | Function>
     defines: Record<any, Record<any, any>>
@@ -34,11 +37,13 @@ export class DecompilationMicroApp {
     moduleName?: string,
     templateList?: string[]
   }[]> = {}
-  private readonly _testCodeInfo: Record<'appService' | 'appWxss', { path: string, code: string }>
+  private readonly _testCodeInfo: Record<'appService' | 'appWxss' | 'pageFrame', { path: string, code: string }>
 
-  constructor(wxapkg_path: string) {
-    this.pathInfo = getPathInfo(wxapkg_path)
+  constructor(wxapkg_path: string, outputDir?: string) {
+    this.pathInfo = getPathInfo(wxapkg_path, outputDir)
+    this.outputDir = outputDir
     this.fileList = []
+    this.packPath = wxapkg_path
     this._testCodeInfo = {
       appService: {
         path: './test/js/app-service.js',
@@ -48,18 +53,25 @@ export class DecompilationMicroApp {
         path: './test/js/app-wxss.js',
         code: ''
       },
+      pageFrame: {
+        path: './test/js/page-frame.js',
+        code: ''
+      },
     }
   }
 
   /** 保存该包中的所有文件 */
   public async unpackWxapkg() {
-    printLog(" \u25B6 当前反编译目标: " + colors.blue(this.pathInfo.filepath), {
+    printLog(` \u25B6 当前反编译目标 (${colors.yellow(this.packType === 'main' ? '主包' : '分包')}) : ` + colors.blue(this.packPath), {
       isEnd: true,
       interceptor: (log) => {
-        // return (log.includes('Decompiling') || log.includes('反编译'))
+        // return !(log.includes('Decompiling') || log.includes('反编译1'))
       }
     });
-    const __APP_BUF__ = fs.readFileSync(this.pathInfo.filepath)
+    printLog(` \u25B6 当前输出目录: ` + colors.blue(this.outputDir), {
+      isEnd: true,
+    });
+    const __APP_BUF__ = fs.readFileSync(this.packPath)
     const fileList = this.genFileList(__APP_BUF__)
     this.fileList.splice(0, this.fileList.length, ...fileList)
     for (let info of this.fileList) {
@@ -67,6 +79,9 @@ export class DecompilationMicroApp {
       const data = __APP_BUF__.subarray(info.off, info.off + info.size)
       DecompilationMicroApp.saveFile(this.pathInfo.resolve(fileName), data)
     }
+    this.packType = fs.existsSync(this.pathInfo.appConfigJsonPath) ? 'main' : 'child'
+    const subPackList = glob.globSync(`${this.pathInfo.packRootPath}/**/page-frame.js`)
+    if (subPackList.length) this.pathInfo = getPathInfo(path.dirname(subPackList[0]))  // 重定向路径信息到子包解压后的根目录
     printLog(`\n \u25B6 解小程序压缩包成功! 文件总数: ${colors.green(this.fileList.length)}`, {isStart: true})
   }
 
@@ -144,33 +159,56 @@ export class DecompilationMicroApp {
         window: vm_window,
         navigator: vm_navigator,
         document: vm_document,
+        __wxCodeSpace__: {
+          setRuntimeGlobals: () => void 0,
+          addComponentStaticConfig: () => void 0,
+          setStyleScope: () => void 0,
+          addTemplateDependencies: () => void 0,
+          batchAddCompiledScripts: () => void 0,
+          batchAddCompiledTemplate: () => void 0,
+        },
       }
     }, vmOptions));
   }
 
-  public removeCache() {
+  public async removeCache() {
+    await sleep(500)
     let cont = 0
-    const allFile = glob.globSync(`${this.pathInfo.outputPath}/**/**{.js,.html,.json}`)
+    const allFile = glob
+      .globSync(`${this.pathInfo.packRootPath}/**/**{.js,.html,.json}`)
     const removeList = [
-      'app-config.json',
+      // 'app-config.json',
       'app-wxss.js',
       'app-service.js',
-      'appservice-app.js',
+      'appservice.app.js',
       'page-frame.js',
+      'webview.app.js',
     ]
     allFile.forEach(filepath => {
-      const fileName = path.basename(filepath)
+      const fileName = path.basename(filepath).trim()
       const extname = path.extname(filepath)
       if (!fs.existsSync(filepath)) return
-      let deleteFile = () => cont++ && DecompilationMicroApp.deleteFile(filepath, {catch: true})
+      let deleteFile = () => {
+        cont++
+        DecompilationMicroApp.deleteFile(filepath, {catch: true, force: true})
+      }
       if (removeList.includes(fileName)) {
         deleteFile()
       } else if (extname === '.html') {
         const feature = 'var __setCssStartTime__ = Date.now()'
         const data = DecompilationMicroApp.readFile(filepath)
         if (data.includes(feature)) deleteFile()
+      } else if (filepath.endsWith('.appservice.js')) {
+        deleteFile()
+      } else if (filepath.endsWith('.webview.js')) {
+        deleteFile()
       }
     })
+
+    if (this.packType === 'child' && fs.existsSync(this.pathInfo.packRootPath)) {
+      fs.rmSync(this.pathInfo.packRootPath, {recursive: true})
+    }
+
     if (cont) {
       printLog(`\n \u25B6 移除中间缓存产物成功, 总计 ${colors.yellow(cont)} 个`, {isStart: true})
     }
@@ -178,7 +216,12 @@ export class DecompilationMicroApp {
   }
 
   public async init() {
-    const filePath = this.pathInfo.appWxssPath
+    let filePath: string
+    if (fs.existsSync(this.pathInfo.appWxssPath)) {
+      filePath = this.pathInfo.appWxssPath
+    } else if (fs.existsSync(this.pathInfo.pageFramePath)) {
+      filePath = this.pathInfo.pageFramePath
+    }
     let code = DecompilationMicroApp.readFile(filePath)
     const vm = this.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global;`)
@@ -191,10 +234,9 @@ export class DecompilationMicroApp {
     )
     code = code + ';window.isHookReady = true'
     vm.run(code)
-    this._testCodeInfo.appWxss.code = code
+    this._testCodeInfo["appWxss"].code = code
     this.DecompilationModules = vm.sandbox.window['DecompilationModules'] || {}
     this.DecompilationWXS = vm.sandbox.window['DecompilationWXS'] || {}
-
     for (const filepath in this.DecompilationModules.modules) {
       if (path.extname(filepath) !== '.wxml') continue
       const wxmlRefWxsMap = this.DecompilationModules.modules[filepath]
@@ -212,51 +254,23 @@ export class DecompilationMicroApp {
       }
     }
 
-    const appSourceConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath))
-    const allPageJsonConfig = appSourceConfig.page
-    this.allRefComponentList = arrayDeduplication(Object.keys(allPageJsonConfig || {})
-      .map((pagePath: any) => {
-        // console.log(this.pathInfo.resolve(pagePath));
-        const pageInfo = allPageJsonConfig[pagePath]
-        const allRefComponents: string[] = Object.values(pageInfo?.window?.['usingComponents'] || {})
-        return allRefComponents.map(compRelativePath => {
-          return `.${path.resolve(path.relative(this.pathInfo.resolve(pagePath), compRelativePath))}`
+    if (this.packType === 'main') {
+      const appConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath))
+      const allPageJsonConfig = appConfig.page
+      this.allRefComponentList = arrayDeduplication(Object.keys(allPageJsonConfig || {})
+        .map((pagePath: any) => {
+          // console.log(this.pathInfo.resolve(pagePath));
+          const pageInfo = allPageJsonConfig[pagePath]
+          const allRefComponents: string[] = Object.values(pageInfo?.window?.['usingComponents'] || {})
+          return allRefComponents.map(compRelativePath => {
+            return `.${path.resolve(path.relative(this.pathInfo.resolve(pagePath), compRelativePath))}`
+          })
         })
-      })
-      .flat(2))
+        .flat(2))
 
-    const subPackages = appSourceConfig.subPackages
-    this.allSubPackagePages = Object.values(subPackages).map((item: Record<any, any>) => item.pages).flat(2).map(str => `./${str}`)
-  }
-
-  public async decompileAll() {
-    /* 移除旧的编译产物 */
-    if (fs.existsSync(this.pathInfo.outputPath)) {
-      fs.rmSync(this.pathInfo.outputPath, {recursive: true})
-      printLog(` \u25B6 已清空旧产物:  ${this.pathInfo.outputPath}`)
-    }
-    /* 开始编译 */
-    await this.unpackWxapkg()
-    await this.init()
-    await this.decompileAppJSON()
-    await this.decompileWXML()
-    await this.decompileWXS()
-    await this.decompileJS()
-    await this.decompileJSON()
-    await this.decompileWXSS()
-    await this.decompileWorker()
-    await this.generateDefaultFiles()
-    // this.removeCache()
-    printLog(` ✅  ${colors.bold(colors.green('反编译成功!'))}  ${colors.gray(this.pathInfo.outputPath)}\n`, {isEnd: true})
-    /* 将最终运行代码同步到 web 测试文件夹 */
-    if (process.env.DEV) {
-      const jsPath = path.resolve('./test/js')
-      if (fs.existsSync(jsPath)) fs.rmSync(jsPath, {recursive: true})
-      for (const name in this._testCodeInfo) {
-        const item = this._testCodeInfo[name]
-        if (!item.code) continue
-        DecompilationMicroApp.saveFile(item.path, item.code)
-      }
+      this.allSubPackagePages = appConfig.subPackages
+        .map((subPackage: any) => appConfig.pages.filter((pagePath: string) => pagePath.startsWith(subPackage.root)))
+        .flat(2)
     }
   }
 
@@ -275,13 +289,15 @@ export class DecompilationMicroApp {
           } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
             code = code.slice(25, -5);
           }
+          code = code.replaceAll('require("@babel', 'require("./@babel')
+
           let beautifyCode = jsBeautify(code);
           if (typeof beautifyCode == "undefined") {
             beautifyCode = jsBeautify(bcode);
           }
           if (beautifyCode.trim()) {
             DecompilationMicroApp.saveFile(_this.pathInfo.resolve(name), beautifyCode)
-            // console.log(pathInfo.fileDirPath, name);  // 打印输出过程
+            // console.log(name);  // 打印输出过程
           }
         },
         require: () => void 0,
@@ -290,20 +306,58 @@ export class DecompilationMicroApp {
       }
     })
     code && vm.run(code)
+    const appJsPath = this.pathInfo.appJsPath
+    // if (fs.existsSync(appJsPath)) {
+    //   let appJsCode = DecompilationMicroApp.readFile(appJsPath)
+    //   appJsCode = appJsCode.replaceAll('require("@babel', 'require("./@babel')
+    //   DecompilationMicroApp.saveFile(appJsPath, appJsCode)
+    // }
+
   }
 
   public async decompileJSON() {
-    const appSourceConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath))
-    for (let pageHtmlPath in appSourceConfig.page) {
-      const pageJsonConfig = appSourceConfig.page[pageHtmlPath]
+    if (this.packType === 'child') return
+    const appConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath))
+    for (let pageHtmlPath in appConfig.page) {
+      const pageJsonConfig = appConfig.page[pageHtmlPath]
       const pageJsonPath = pageHtmlPath.replace('.html', '.json')
-      DecompilationMicroApp.saveFile(this.pathInfo.resolve(pageJsonPath), JSON.stringify(pageJsonConfig.window, null, 2))
+      const realJsonConfig: Record<any, any> = pageJsonConfig.window || {}
+      delete realJsonConfig.enableFSTCollect
+      delete realJsonConfig.enableFSPCollect
+      delete realJsonConfig.fstIgnoredClassNames
+      delete realJsonConfig.enableFSPImageCollect
+      delete realJsonConfig.hideCapsuleButtons
+      delete realJsonConfig.rendererType
+      delete realJsonConfig.widgetBackgroundColor
+      delete realJsonConfig.enablePageScroll
+      realJsonConfig.backgroundColorTop = realJsonConfig.backgroundTopColor
+      delete realJsonConfig.backgroundTopColor
+      delete realJsonConfig.enableBeforeUnload
+      delete realJsonConfig.alipayStyleIsolation
+      delete realJsonConfig.fstContainerId
+      delete realJsonConfig.__warning__
+      delete realJsonConfig.sdkVersionEnd
+      delete realJsonConfig.window
+      delete realJsonConfig.initialRenderingSnapshot
+      if (realJsonConfig.rendererOptions?.['skyline']) {
+        delete realJsonConfig.rendererOptions?.['skyline']['disableABTest']
+        delete realJsonConfig.rendererOptions?.['skyline']['sdkVersionBegin']
+        delete realJsonConfig.rendererOptions?.['skyline']['sdkVersionEnd']
+      }
+
+      DecompilationMicroApp.saveFile(this.pathInfo.resolve(pageJsonPath), JSON.stringify(realJsonConfig, null, 2))
     }
     printLog(` \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
   }
 
   public async decompileWXSS() {
-    const code = DecompilationMicroApp.readFile(this.pathInfo.appWxssPath)
+    let filePath: string
+    if (fs.existsSync(this.pathInfo.appWxssPath)) {
+      filePath = this.pathInfo.appWxssPath
+    } else if (fs.existsSync(this.pathInfo.pageFramePath)) {
+      filePath = this.pathInfo.pageFramePath
+    }
+    const code = DecompilationMicroApp.readFile(filePath)
     if (!code.trim()) return
     const vm = this.createVM()
     vm.run(code)
@@ -363,53 +417,63 @@ export class DecompilationMicroApp {
   }
 
   public async decompileAppJSON() {
+    if (this.packType === 'child') return
     const configFilePath = this.pathInfo.appJsonPath
     await sleep(200)
-    const appSourceConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath))
-    const appConfig: Record<any, any> = {}
-    // appConfig.debug = !!appSourceConfig.debug
-    if (appSourceConfig.global.window) appConfig.window = appSourceConfig.global.window
-    if (appSourceConfig.globalStyle) appConfig.globalStyle = appSourceConfig.globalStyle
-    if (appSourceConfig.networkTimeout) appConfig.networkTimeout = appSourceConfig.networkTimeout
-    if (appSourceConfig.navigateToMiniProgramAppIdList) appConfig.navigateToMiniProgramAppIdList = appSourceConfig.navigateToMiniProgramAppIdList;
-    if (appSourceConfig.subPackages) {
+    const appConfigString = DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath)
+    const appConfig: Record<any, any> = JSON.parse(appConfigString)
+    appConfig.window = appConfig.global.window || {}
+    delete appConfig.global
+    delete appConfig.page
+    appConfig.plugins = {}
+    if (appConfig.subPackages) {
       let subPackages = [];
-      let pages = appSourceConfig.pages;
-      appSourceConfig.subPackages.forEach((subPackage: Record<any, any>) => {
+      appConfig.subPackages.forEach((subPackage: Record<any, any>) => {
         let root = subPackage.root;
         let newPages = [];
         root = !String(root).endsWith('/') ? root + '/' : root
         root = String(root).startsWith('/') ? root.substring(1) : root
-        for (let pageString of appSourceConfig.pages) {
+        for (let pageString of appConfig.pages) {
           if (pageString.startsWith(root)) {
             newPages.push(pageString.replace(root, ''));
           }
         }
         subPackage.root = root;
         subPackage.pages = newPages;
+        delete subPackage.plugins
         subPackages.push(subPackage);
       })
+      subPackages = subPackages.filter(sub => (sub.pages || []).length > 0)
+      if (Object.keys(subPackages).length >= 100) {
+        console.log(` ▶ ${colors.red('程序主动结束编译, 因为 subPackages 包个数超过限制 100')}`)
+        process.exit()
+      }
       appConfig.subPackages = subPackages;
-      appConfig.pages = pages;
+    }
+    appConfig.pages = arrayDeduplication<string>(appConfig.pages, (_, cur) => !this.allSubPackagePages.includes(cur))
+    if (appConfig.entryPagePath) appConfig.entryPagePath = appConfig.entryPagePath.replace('.html', '')
+    if (appConfig.renderer) {
+      appConfig.renderer = appConfig.renderer.default || 'webview'
     }
 
-    appConfig.pages = arrayDeduplication<string>(appConfig.pages, (_, cur) => !this.allSubPackagePages.includes(`./${cur}`))
-
-    if (appSourceConfig.entryPagePath) {
-      appConfig.entryPagePath = appSourceConfig.entryPagePath.replace('.html', '')
-    }
-
-    if (appSourceConfig.extAppid)
+    if (appConfig.extAppid)
       DecompilationMicroApp.saveFile(this.pathInfo.resolve('ext.json'), JSON.stringify({
         extEnable: true,
-        extAppid: appSourceConfig.extAppid,
-        ext: appSourceConfig.ext
+        extAppid: appConfig.extAppid,
+        ext: appConfig.ext
       }, null, 2))
 
-    if (appSourceConfig.tabBar) {
-      if (!appSourceConfig.tabBar.list) appSourceConfig.tabBar.list = []
-      appConfig.tabBar = appSourceConfig.tabBar
-      const allDecompilationBeforeFileList = glob.globSync(`${this.pathInfo.outputPath}/**`)
+    if (appConfigString.includes('"renderer": "skyline"') || appConfigString.includes('"renderer":"skyline"')) {
+      appConfig.lazyCodeLoading = "requiredComponents"
+      delete appConfig.window.navigationStyle
+      delete appConfig.window.navigationBarTextStyle
+      delete appConfig.window.navigationBarTitleText
+      delete appConfig.window.navigationBarBackgroundColor
+    }
+
+    if (appConfig.tabBar) {
+      if (!appConfig.tabBar.list) appConfig.tabBar.list = []
+      const allDecompilationBeforeFileList = glob.globSync(`${this.pathInfo.packRootPath}/**`)
       const allFileBufferInfo = allDecompilationBeforeFileList
         .filter(filePath => !fs.statSync(filePath).isDirectory())
         .map(filePath => {
@@ -418,16 +482,16 @@ export class DecompilationMicroApp {
             path: filePath
           }
         })
-      appConfig.tabBar.list = appSourceConfig.tabBar.list.map((info: Record<any, any>) => {
+      appConfig.tabBar.list = appConfig.tabBar.list.map((info: Record<any, any>) => {
         const result: Record<any, any> = {text: info.text}
         result.pagePath = info.pagePath.replace('.html', '')
         if (info.iconData) {
           const found = allFileBufferInfo.find(item => item.data === info.iconData)
-          if (found) result.iconPath = path.relative(this.pathInfo.outputPath, found.path)
+          if (found) result.iconPath = path.relative(this.pathInfo.packRootPath, found.path)
         }
         if (info.selectedIconData) {
           const found = allFileBufferInfo.find(item => item.data === info.selectedIconData)
-          if (found) result.selectedIconPath = path.relative(this.pathInfo.outputPath, found.path)
+          if (found) result.selectedIconPath = path.relative(this.pathInfo.packRootPath, found.path)
         }
         return result
       })
@@ -438,18 +502,22 @@ export class DecompilationMicroApp {
   }
 
   public async decompileWXML() {
-    const filePath = this.pathInfo.appWxssPath
+    let filePath: string
+    if (fs.existsSync(this.pathInfo.appWxssPath)) {
+      filePath = this.pathInfo.appWxssPath
+    } else if (fs.existsSync(this.pathInfo.pageFramePath)) {
+      filePath = this.pathInfo.pageFramePath
+    }
     let code = DecompilationMicroApp.readFile(filePath)
     const vm = this.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global`)
     vm.run(code);
     // console.log(code)
     getZ(code, (z) => {
-      // console.log(z)
-      let outputPath = this.pathInfo.outputPath
+      let packRootPath = this.pathInfo.packRootPath
       const {entrys, defines} = this.DecompilationModules
       for (let name in entrys) {
-        tryWxml(outputPath, name, entrys[name].f.toString(), z, defines[name])
+        tryWxml(packRootPath, name, entrys[name].f.toString(), z, defines[name])
       }
     })
     await sleep(200)
@@ -491,10 +559,9 @@ export class DecompilationMicroApp {
    * 添加组件构成必要素的默认 json wxs, wxml, wxss 文件
    * */
   public async generateDefaultFiles() {
-    const allPageAbsolutePathList = glob.globSync(`${this.pathInfo.outputPath}/**/*.html`)
-    const allPage = allPageAbsolutePathList.map(str => str.replace(this.pathInfo.outputPath, '.'))
+    const allPageAbsolutePathList = glob.globSync(`${this.pathInfo.packRootPath}/**/*.html`)
+    const allPage = allPageAbsolutePathList.map(str => str.replace(this.pathInfo.packRootPath, '.'))
     const allPageAndComp = allPage.concat(this.allRefComponentList).concat(this.allSubPackagePages)
-
     for (let pagePath of allPageAndComp) {
       let jsPath = this.pathInfo.resolve(replaceExt(pagePath, ".js"))
       DecompilationMicroApp.saveFile(jsPath, "// " + jsPath + "\nPage({data: {}})");
@@ -509,9 +576,44 @@ export class DecompilationMicroApp {
       /* wxss */
       let cssName = replaceExt(pagePath, ".wxss")
       let cssPath = this.pathInfo.resolve(cssName)
-      DecompilationMicroApp.saveFile(cssPath, "/* " + cssName + " */");
+      // DecompilationMicroApp.saveFile(cssPath, "/* " + cssName + " */");
     }
     printLog(` \u25B6 生成页面和组件构成必要的默认文件成功. \n`, {isStart: true})
+  }
+
+  public async decompileAll() {
+    if (this.packType === 'child') {
+
+    }
+
+    /* 移除旧的编译产物 */
+    if (fs.existsSync(this.pathInfo.packRootPath)) {
+      fs.rmSync(this.pathInfo.packRootPath, {recursive: true})
+      printLog(` \u25B6 已清空旧产物:  ${this.pathInfo.packRootPath}`)
+    }
+    /* 开始编译 */
+    await this.unpackWxapkg()
+    await this.init()
+    await this.decompileAppJSON()
+    await this.decompileWXML()
+    await this.decompileWXS()
+    await this.decompileJS()
+    await this.decompileJSON()
+    await this.decompileWXSS()
+    await this.decompileWorker()
+    await this.generateDefaultFiles()
+    await this.removeCache()
+    printLog(` ✅  ${colors.bold(colors.green('反编译成功!'))}  ${colors.gray(this.pathInfo.packRootPath)}\n`, {isEnd: true})
+    /* 将最终运行代码同步到 web 测试文件夹 */
+    if (process.env.DEV) {
+      const jsPath = path.resolve('./test/js')
+      if (fs.existsSync(jsPath)) fs.rmSync(jsPath, {recursive: true})
+      for (const name in this._testCodeInfo) {
+        const item = this._testCodeInfo[name]
+        if (!item.code) continue
+        DecompilationMicroApp.saveFile(item.path, item.code)
+      }
+    }
   }
 }
 

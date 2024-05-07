@@ -34,6 +34,11 @@ const prompts = {
             return true
           },
         },
+        {
+          type: 'waitUserInput',
+          message: `请输入输出目录, 默认和输入目录同级: `,
+          name: 'outPath',
+        },
       ]
     )
   },

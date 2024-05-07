@@ -360,12 +360,12 @@ function doWxml(state: any, dir: string, name: string, code: string, z: {}, rDs:
 }
 
 export function tryWxml(dir: string, name: string, code: string, z: any[], rDs: any) {
-  printLog(" Decompiling " + colors.bold(colors.gray(name)))
+  printLog(` Decompiling  ${colors.bold(colors.gray(name))}`)
   let state = [null];
   try {
     doWxml(state, dir, name, code, z, rDs);
   } catch (e) {
-    console.log("\n\u274C  error on " + name + "(" + (state[0] === null ? "Main" : "Template-" + state[0]) + ")\nerr: ", e);
+    // console.log("\n\u274C  error on " + name + "(" + (state[0] === null ? "Main" : "Template-" + state[0]) + ")\nerr: ", e);
     if (state[0] === null) DecompilationMicroApp.saveFile(path.resolve(dir, name + ".ori.js"), code);
     else DecompilationMicroApp.saveFile(path.resolve(dir, name + ".tem-" + state[0] + ".ori.js"), rDs[state[0]].toString());
   }

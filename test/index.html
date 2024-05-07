@@ -18,63 +18,57 @@
 <script src="./js/app-wxss.js"></script>
 <script src="./js/app-service.js"></script>
 <script type="module">
-  import escodegen from "escodegen";
-  import * as esprima from "esprima";
 
-  for (const pathname in __wxAppCode__) {
-    const item = __wxAppCode__[pathname]
-    if (!pathname.endsWith('.wxml')) continue
-    if (typeof item === 'function') {
-      const ast = item()
-      // console.log(ast, pathname)
-    } else {
-      try {
-        item()
-      } catch (e) {
+  if (window['__wxAppCode__']){
+    for (const pathname in window['__wxAppCode__']) {
+      const item = __wxAppCode__[pathname]
+      if (!pathname.endsWith('.wxml')) continue
+      if (typeof item === 'function') {
+        const ast = item()
+        // console.log(ast, pathname)
+      } else {
+        try {
+          item()
+        } catch (e) {
 
+        }
+        try {
+          item()()
+        } catch (e) {
+
+        }
+        // console.log(item)
       }
-      try {
-        item()()
-      } catch (e) {
-
-      }
-      // console.log(item)
     }
+    // const pageAst = window['__wxAppCode__']['components/accountbindphonebar/index.wxml']()
+    // console.log(pageAst);
   }
-  const pageAst = __wxAppCode__['components/accountbindphonebar/index.wxml']()
-  console.log(pageAst);
+
   // console.log(__WXML_GLOBAL__.ops_cached['$gwx_21'])
 
   const global = window.DecompilationModules
   console.log(window.DecompilationModules)
-  // console.log(global)
   // console.log(global.entrys['./components/accountbindphonebar/index.wxml'].f(undefined, {}, pageAst, {
   //     "opindex": 0,
   //     "debugInfo": null
   // }))
-  let funcString = global.entrys['./components/accountbindphonebar/index.wxml'].f.toString()
-  // console.log(funcString)
-  funcString = funcString.replace('function', 'function __esprima_name__')
-  const ast = esprima.parseScript(funcString);
-  console.log(ast)
 
-  const wxsRefInfo = window.DecompilationModules.modules
-  const all_wxs_cjs_func = {}
-  for (const wxsPath in wxsRefInfo) {
-    if (!wxsPath.endsWith('.wxs')) continue
-    const func = wxsRefInfo[wxsPath]
-    // all_wxs_cjs_func[wxsPath] = func
-    let cjsFunction = func(`p_${wxsPath}`)
-    // console.log(`p_${wxsPath}`)
-    if (typeof cjsFunction !== 'function') {
-      // cjsFunction = func
-    }
-    cjsFunction = func
-
-    // console.log(wxsPath, cjsFunction)
-
-
-  }
+  // const wxsRefInfo = window.DecompilationModules.modules
+  // const all_wxs_cjs_func = {}
+  // for (const wxsPath in wxsRefInfo) {
+  //   if (!wxsPath.endsWith('.wxs')) continue
+  //   const func = wxsRefInfo[wxsPath]
+  //   // all_wxs_cjs_func[wxsPath] = func
+  //   let cjsFunction = func(`p_${wxsPath}`)
+  //   // console.log(`p_${wxsPath}`)
+  //   if (typeof cjsFunction !== 'function') {
+  //     // cjsFunction = func
+  //   }
+  //   cjsFunction = func
+  //
+  //   // console.log(wxsPath, cjsFunction)
+  //
+  // }
 
 
   //

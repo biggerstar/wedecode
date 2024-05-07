@@ -5,22 +5,23 @@ import process from "node:process";
 import {stdout as slog} from 'single-line-log'
 import {a} from "vite/dist/node/types.d-aGj9QkWt";
 
-export function getPathInfo(dir: string) {
+export function getPathInfo(dir: string, outputDir?: string) {
   const outputFolderName = path.basename(dir).replace(path.extname(dir), '')
-  const outputPath = path.resolve(path.dirname(dir), outputFolderName)
+  const packRootPath = path.resolve(path.dirname(dir), outputFolderName)
   const resolve = (_new_resolve_path: string, ...args: string[]): string => {
-    return path.resolve(outputPath, _new_resolve_path, ...args)
+    return path.resolve((outputDir || packRootPath), _new_resolve_path, ...args)
   }
   return {
-    outputFolderName: outputFolderName,
-    filepath: dir,
     fileDirPath: path.dirname(dir),
-    outputPath,
+    outputPath: outputDir || packRootPath,
+    packRootPath: packRootPath,
     resolve,
     appJsonPath: resolve('app.json'),
     appConfigJsonPath: resolve('app-config.json'),
     appWxssPath: resolve('app-wxss.js'),
     workersPath: resolve('workers.js'),
+    pageFramePath: resolve('page-frame.js'),
+    appJsPath: resolve('app.js'),
   }
 }
 
@@ -66,13 +67,6 @@ export function printLog(log: string, opt: {
   interceptor?: (log: string) => any
 } = {}) {
   if (!log.trim()) return
-  if (typeof printLog['interceptor'] === "function" && printLog['interceptor'](log) === false) {
-    return
-  }
-  if (printLog['nativeOnly']) {
-    console.log.call(console, log)
-    return;
-  }
   if (opt.interceptor) printLog['interceptor'] = opt.interceptor
   if (opt.space1) printLog['space1'] = opt.space1
   if (opt.space2) printLog['space2'] = opt.space2
@@ -80,6 +74,13 @@ export function printLog(log: string, opt: {
   if (!printLog['middleLogList']) printLog['middleLogList'] = []
   if (!printLog['startLogList']) printLog['startLogList'] = []
   if (!printLog['endLogList']) printLog['endLogList'] = []
+  if (typeof printLog['interceptor'] === "function" && (printLog['interceptor'](log) === false)) {
+    return
+  }
+  if (printLog['nativeOnly']) {
+    console.log.call(console, log)
+    return;
+  }
   if (opt.isStart) {
     limitPush(printLog['startLogList'], log, opt.starLimit || 20)
   } else if (opt.isEnd) {
@@ -122,7 +123,7 @@ export function sleep(time: number) {
 }
 
 /**
- * 数组去重， 回调函数返回布尔值，代表本次的成员是否添加到数组中
+ * 数组去重， 回调函数返回布尔值，代表本次的成员是否添加到数组中, 返回 true 允许加入， 反之
  * 如果未传入回调函数， 将默认去重
  * */
 export function arrayDeduplication<T extends any>(arr: T[], cb?: (pre: T[], cur: T) => boolean): T[] {
