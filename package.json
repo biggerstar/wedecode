@@ -1,0 +1,53 @@
+{
+  "name": "wedecode",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "微信小程序源代码还原工具, 可用于手残党误删源代码丢失后还原项目减少损失",
+  "bin": {
+    "wedecode": "./dist/wedecode.js"
+  },
+  "scripts": {
+    "dev": "vite-run dev -y",
+    "build": "vite-run build",
+    "link": "vite-run build -y && pnpm link --dir= ./",
+    "unlink": "pnpm unlink",
+    "dev:unpack": "DEV=true wedecode pkg/old/__old__.wxapkg",
+    "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/biggerstar/wxapp-unpkg.git"
+  },
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/biggerstar/wxapp-unpkg/issues"
+  },
+  "files": [
+    "dist"
+  ],
+  "homepage": "https://github.com/biggerstar/wedecode#readme",
+  "dependencies": {
+    "@biggerstar/deepmerge": "^1.0.3",
+    "commander": "^12.0.0",
+    "escodegen": "^1.14.3",
+    "esprima": "^4.0.1",
+    "glob": "^10.3.12",
+    "inquirer": "^9.2.20",
+    "jsdom": "^24.0.0",
+    "picocolors": "^1.0.0",
+    "single-line-log": "^1.1.2",
+    "uglify-js": "^3.17.4",
+    "vite-run": "^1.7.0",
+    "vkbeautify": "^0.99.3",
+    "vm2": "^3.9.19"
+  },
+  "devDependencies": {
+    "@types/escodegen": "^0.0.10",
+    "@types/esprima": "^4.0.6",
+    "@types/jsdom": "^21.1.6",
+    "@types/node": "^20.12.8",
+    "@types/uglify-js": "^3.17.5",
+    "@types/vkbeautify": "^0.99.4",
+    "vite": "^5.2.11"
+  }
+}
