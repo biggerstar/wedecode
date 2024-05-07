@@ -1,6 +1,6 @@
 {
   "name": "wedecode",
-  "version": "0.0.2",
+  "version": "0.0.5",
   "type": "module",
   "description": "微信小程序源代码还原工具, 可用于手残党误删源代码丢失后还原项目减少损失",
   "bin": {
