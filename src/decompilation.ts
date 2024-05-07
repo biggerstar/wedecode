@@ -53,16 +53,12 @@ export class DecompilationMicroApp {
 
   /** 保存该包中的所有文件 */
   public async unpackWxapkg() {
-    printLog(colors.bgRed(colors.yellow(`\n\t🔶  \t  ${colors.bold('小程序反编译工具 wxapp-unpack')}\t\t🔶\t\n`)), {
-      isStart: true,
-      space1: '\n\n',
-      space2: '\n',
-      nativeOnly: !!process.env.DEV,
+    printLog(" \u25B6 当前反编译目标: " + colors.blue(this.pathInfo.filepath), {
+      isEnd: true,
       interceptor: (log) => {
-        return (log.includes('Decompiling') || log.includes('反编译'))
+        // return (log.includes('Decompiling') || log.includes('反编译'))
       }
-    })
-    printLog(" \u25B6 当前反编译文件: " + colors.blue(this.pathInfo.filepath), {isStart: true});
+    });
     const __APP_BUF__ = fs.readFileSync(this.pathInfo.filepath)
     const fileList = this.genFileList(__APP_BUF__)
     this.fileList.splice(0, this.fileList.length, ...fileList)
@@ -251,7 +247,7 @@ export class DecompilationMicroApp {
     await this.decompileWorker()
     await this.generateDefaultFiles()
     // this.removeCache()
-    printLog(`\n ✅  ${colors.bold(colors.green('反编译成功!\n'))}`, {isEnd: true})
+    printLog(` ✅  ${colors.bold(colors.green('反编译成功!'))}  ${colors.gray(this.pathInfo.outputPath)}\n`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
     if (process.env.DEV) {
       const jsPath = path.resolve('./test/js')
@@ -303,7 +299,7 @@ export class DecompilationMicroApp {
       const pageJsonPath = pageHtmlPath.replace('.html', '.json')
       DecompilationMicroApp.saveFile(this.pathInfo.resolve(pageJsonPath), JSON.stringify(pageJsonConfig.window, null, 2))
     }
-    printLog(`\n \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
   }
 
   public async decompileWXSS() {
@@ -326,7 +322,7 @@ export class DecompilationMicroApp {
       }
       headList.forEach(node => node.remove())
     }
-    printLog(`\n \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
   }
 
   public async decompileWXS() {
@@ -363,7 +359,7 @@ export class DecompilationMicroApp {
         this.wxsRefInfo[referencerOwnPath]
       })
     }
-    printLog(`\n \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
   }
 
   public async decompileAppJSON() {
@@ -438,7 +434,7 @@ export class DecompilationMicroApp {
     }
 
     DecompilationMicroApp.saveFile(configFilePath, JSON.stringify(appConfig, null, 2), {force: true})
-    printLog(`\n \u25B6 反编译 app.json 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译 app.json 文件成功. \n`, {isStart: true})
   }
 
   public async decompileWXML() {
@@ -457,7 +453,7 @@ export class DecompilationMicroApp {
       }
     })
     await sleep(200)
-    printLog(`\n \u25B6 反编译所有 wxml 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译所有 wxml 文件成功. \n`, {isStart: true})
   }
 
   public async decompileWorker(): Promise<any> {
@@ -488,7 +484,7 @@ export class DecompilationMicroApp {
     printLog(`Worker path:  ${commPath}`);
     appConfig.workers = commPath
     DecompilationMicroApp.saveFile(this.pathInfo.appJsonPath, JSON.stringify(appConfig, null, 2))
-    printLog(`\n \u25B6 反编译 Worker 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译 Worker 文件成功. \n`, {isStart: true})
   }
 
   /**
@@ -515,7 +511,7 @@ export class DecompilationMicroApp {
       let cssPath = this.pathInfo.resolve(cssName)
       DecompilationMicroApp.saveFile(cssPath, "/* " + cssName + " */");
     }
-    printLog(`\n \u25B6 生成页面和组件构成必要的默认文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 生成页面和组件构成必要的默认文件成功. \n`, {isStart: true})
   }
 }
 

@@ -22,7 +22,10 @@
 ```shell
   wedecode
 ```
-
+或者
+```shell
+  wedecode ./xxx.wxapkg
+```
 ### 须知
 
 该工具用于手残党误删源代码丢失后还原项目减少损失， 严禁用于非法用途。

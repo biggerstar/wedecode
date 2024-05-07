@@ -11,7 +11,10 @@
     "build": "vite-run build",
     "link": "vite-run build -y && pnpm link --dir= ./",
     "unlink": "pnpm unlink",
-    "dev:unpack": "DEV=true wedecode pkg/old/__old__.wxapkg",
+    "release:npm": "vite-run build -y && npm publish",
+    "test: cmd": "wedecode",
+    "dev:unpack:file": "DEV=true wedecode pkg/meituan/__APP__.wxapkg",
+    "dev:unpack:dir": "DEV=true wedecode pkg/old/",
     "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
   },
   "repository": {
@@ -28,6 +31,7 @@
   "homepage": "https://github.com/biggerstar/wedecode#readme",
   "dependencies": {
     "@biggerstar/deepmerge": "^1.0.3",
+    "@types/inquirer": "^9.0.7",
     "commander": "^12.0.0",
     "escodegen": "^1.14.3",
     "esprima": "^4.0.1",

@@ -23,6 +23,7 @@ const external = [
     'picocolors',
     'jsdom',
     'glob',
+    'inquirer',
 ]
 
 export default defineViteRunConfig({
@@ -34,10 +35,10 @@ export default defineViteRunConfig({
     targets: {
         'wedecode': {
             dev: [
-                ['unpkg_app', 'watch']
+                ['wedecode', 'watch']
             ],
             build: [
-                ['unpkg_app'],
+                ['wedecode'],
             ],
         },
         'test': {
@@ -61,7 +62,7 @@ export default defineViteRunConfig({
         minify: {
             minify: true
         },
-        unpkg_app: (options: ViteRunHandleFunctionOptions) => {
+        wedecode: (options: ViteRunHandleFunctionOptions) => {
             return {
                 lib: {
                     entry: resolve(options.packagePath, './wedecode.ts'),

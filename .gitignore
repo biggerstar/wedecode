@@ -19,3 +19,4 @@ node_modules
 wxapkg
 /dist/
 /pkg/
+test/js/

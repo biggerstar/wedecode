@@ -81,11 +81,11 @@ export function printLog(log: string, opt: {
   if (!printLog['startLogList']) printLog['startLogList'] = []
   if (!printLog['endLogList']) printLog['endLogList'] = []
   if (opt.isStart) {
-    limitPush(printLog['startLogList'], log, opt.starLimit || 12)
+    limitPush(printLog['startLogList'], log, opt.starLimit || 20)
   } else if (opt.isEnd) {
     limitPush(printLog['endLogList'], log, opt.middleLimit || 6)
   } else {
-    limitPush(printLog['middleLogList'], log, opt.endLimit || 6)
+    limitPush(printLog['middleLogList'], log, opt.endLimit || 20)
   }
   log = printLog['startLogList'].join('\n')
     + (printLog['space1'] || '')
