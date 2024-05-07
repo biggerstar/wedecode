@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <title>测试脚本</title>
+</head>
+<body>
+<h3 style="text-align: center">
+  开始调试吧 =>
+</h3>
+<script type="application/javascript">
+  !window.define && (window.define = () => void 0)
+  !window.require && (window.require = () => void 0)
+  !window.definePlugin && (window.definePlugin = () => void 0)
+  !window.requirePlugin && (window.requirePlugin = () => void 0)
+</script>
+<script src="./js/app-wxss.js"></script>
+<script src="./js/app-service.js"></script>
+<script type="module">
+  import escodegen from "escodegen";
+  import * as esprima from "esprima";
+
+  for (const pathname in __wxAppCode__) {
+    const item = __wxAppCode__[pathname]
+    if (!pathname.endsWith('.wxml')) continue
+    if (typeof item === 'function') {
+      const ast = item()
+      // console.log(ast, pathname)
+    } else {
+      try {
+        item()
+      } catch (e) {
+
+      }
+      try {
+        item()()
+      } catch (e) {
+
+      }
+      // console.log(item)
+    }
+  }
+  const pageAst = __wxAppCode__['components/accountbindphonebar/index.wxml']()
+  console.log(pageAst);
+  // console.log(__WXML_GLOBAL__.ops_cached['$gwx_21'])
+
+  const global = window.DecompilationModules
+  console.log(window.DecompilationModules)
+  // console.log(global)
+  // console.log(global.entrys['./components/accountbindphonebar/index.wxml'].f(undefined, {}, pageAst, {
+  //     "opindex": 0,
+  //     "debugInfo": null
+  // }))
+  let funcString = global.entrys['./components/accountbindphonebar/index.wxml'].f.toString()
+  // console.log(funcString)
+  funcString = funcString.replace('function', 'function __esprima_name__')
+  const ast = esprima.parseScript(funcString);
+  console.log(ast)
+
+  const wxsRefInfo = window.DecompilationModules.modules
+  const all_wxs_cjs_func = {}
+  for (const wxsPath in wxsRefInfo) {
+    if (!wxsPath.endsWith('.wxs')) continue
+    const func = wxsRefInfo[wxsPath]
+    // all_wxs_cjs_func[wxsPath] = func
+    let cjsFunction = func(`p_${wxsPath}`)
+    // console.log(`p_${wxsPath}`)
+    if (typeof cjsFunction !== 'function') {
+      // cjsFunction = func
+    }
+    cjsFunction = func
+
+    // console.log(wxsPath, cjsFunction)
+
+
+  }
+
+
+  //
+  // /** 深度遍历 */
+  // function traverseDOMTree(parentElement, astVNode, callback) {
+  //     if (!astVNode) return
+  //     const newElement = callback(parentElement, astVNode);
+  //     const VNodeChildren = Array.from(astVNode.children).filter(Boolean)
+  //     if (!VNodeChildren.length) return
+  //     for (let i = 0; i < VNodeChildren.length; i++) {
+  //         traverseDOMTree(newElement, VNodeChildren[i], callback);
+  //     }
+  // }
+
+  // const ast = __wxAppCode__['index/pages/mt/mt.wxml']()    // 一共 24 个元素
+  // const rootFragment = document.createDocumentFragment()
+
+  // traverseDOMTree(rootFragment, ast, (parentElement, VNode) => {
+  //     console.log(parentElement, '<=== append to', VNode)
+  //     const newElement = document.createElement(VNode.tag.startsWith('wx-') ? VNode.tag.replace('wx-', '') : VNode.tag)
+  //     if (VNode.attr) {
+  //         for (const attrName in VNode.attr) {
+  //             newElement.setAttribute(attrName, VNode.attr[attrName] || '')
+  //         }
+  //     }
+  //     parentElement.appendChild(newElement)
+  //     return newElement
+  // })
+  // document.body.appendChild(rootFragment)
+
+</script>
+</body>
+</html>
