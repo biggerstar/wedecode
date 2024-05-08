@@ -283,11 +283,11 @@ function elemToString(elem: Record<any, any>, dep: any) {
       if (ret.textNode == 1) {
         if (!needTrimLeft) {
           needTrimLeft = true;
-          ans = ans.trimRight();
+          ans = ans.trimEnd();
         }
       } else if (needTrimLeft) {
         needTrimLeft = false;
-        ret = ret.trimLeft();
+        ret = ret.trimStart();
       }
       ans += ret;
     }
@@ -331,7 +331,7 @@ function elemToString(elem: Record<any, any>, dep: any) {
   return trimMerge(rets);
 }
 
-function doWxml(state: any, dir: string, name: string, code: string, z: {}, rDs: any) {
+function doDecompileWxml(state: any, dir: string, name: string, code: string, z: {}, rDs: any) {
   let rName = code.slice(code.lastIndexOf("return") + 6).replace(/[\;\}]/g, "").trim();
   code = code.slice(code.indexOf("\n"), code.lastIndexOf("return")).trim();
   let r = {son: []};
@@ -359,9 +359,9 @@ function doWxml(state: any, dir: string, name: string, code: string, z: {}, rDs:
   DecompilationMicroApp.saveFile(name, result.join(""), {force: true});
 }
 
-export function tryWxml(dir: string, name: string, code: string, z: any[], rDs: any) {
+export function tryDecompileWxml(dir: string, name: string, code: string, z: Record<string, any[]>, rDs: any) {
   try {
-    doWxml([null], dir, name, code, z, rDs);
+    doDecompileWxml([null], dir, name, code, z, rDs);
     return true
   } catch (e) {
     return false

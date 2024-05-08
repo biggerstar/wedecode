@@ -13,7 +13,7 @@
     "unlink": "pnpm unlink",
     "release:npm": "vite-run build -y && npm publish",
     "test: cmd": "wedecode",
-    "dev:unpack:file": "DEV=true wedecode --overwrite=true ./pkg/meituan/__APP__.wxapkg",
+    "dev:unpack:file": "DEV=true wedecode --overwrite=true ./pkg/old",
     "dev:unpack:dir": "DEV=true wedecode ./pkg/meituan/",
     "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
   },

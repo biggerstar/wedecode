@@ -1,30 +1,9 @@
 import {DecompilationMicroApp} from "../decompilation";
 
-function catchZ(code: string, cb: Function) {
-  const reg = /function\s+gz\$gwx(_\w+)\(\)\{(?:.|\n)*?;return\s+__WXML_GLOBAL__\.ops_cached\.\$gwx_[\w\n]+}/g
-  const allGwxFunctionMatch = code.match(reg)
-  const allFunctionMap = {}
-  const z = {}
-  const vm1 = DecompilationMicroApp.createVM({
-    sandbox: {__WXML_GLOBAL__: {ops_cached: {}}}
-  })
-  allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
-    const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
-    const found = funcReg.exec(funcString)
-    vm1.run(funcString)
-    const hookZFunc = vm1.sandbox[`gz$gwx${found[1]}`]
-    if (hookZFunc) {
-      allFunctionMap[found[1]] = hookZFunc
-      z[found[1]] = hookZFunc()
-    }
-  })
-  cb(z);
-}
-
-function restoreSingle(ops, withScope = false) {
+function restoreSingle(ops: any, withScope = false) {
   if (typeof ops == "undefined") return "";
 
-  function scope(value) {
+  function scope(value: string) {
     if (value.startsWith('{') && value.endsWith('}')) return withScope ? value : "{" + value + "}";
     return withScope ? value : "{{" + value + "}}";
   }
@@ -47,7 +26,7 @@ function restoreSingle(ops, withScope = false) {
     return restoreSingle(ops, w);
   }
 
-  function jsoToWxon(obj) {//convert JS Object to Wechat Object Notation(No quotes@key+str)
+  function jsoToWxOn(obj) {//convert JS Object to WeChat Object Notation(No quotes@key+str)
     let ans = "";
     if (typeof obj === "undefined") {
       return 'undefined';
@@ -56,10 +35,10 @@ function restoreSingle(ops, withScope = false) {
     } else if (obj instanceof RegExp) {
       return obj.toString();
     } else if (obj instanceof Array) {
-      for (let i = 0; i < obj.length; i++) ans += ',' + jsoToWxon(obj[i]);
+      for (let i = 0; i < obj.length; i++) ans += ',' + jsoToWxOn(obj[i]);
       return enBrace(ans.slice(1), '[');
     } else if (typeof obj == "object") {
-      for (let k in obj) ans += "," + k + ":" + jsoToWxon(obj[k]);
+      for (let k in obj) ans += "," + k + ":" + jsoToWxOn(obj[k]);
       return enBrace(ans.slice(1), '{');
     } else if (typeof obj == "string") {
       let parts = obj.split('"'), ret = [];
@@ -78,7 +57,7 @@ function restoreSingle(ops, withScope = false) {
       case 3://string
         return ops[1];//may cause problems if wx use it to be string
       case 1://direct value
-        return scope(jsoToWxon(ops[1]));
+        return scope(jsoToWxOn(ops[1]));
       case 11://values list, According to var a = 11;
         let ans = "";
         ops.shift();
@@ -86,11 +65,11 @@ function restoreSingle(ops, withScope = false) {
         return ans;
     }
   } else {
-    let ans: string | String = "";
+    let ans: string = "";
     switch (op[0]) {//vop
       case 2://arithmetic operator
       {
-        function getPrior(op, len) {
+        function getPrior(op: number, len: number) {
           const priorList = {
             "?:": 4,
             "&&": 6,
@@ -119,7 +98,7 @@ function restoreSingle(ops, withScope = false) {
           return priorList[op] ? priorList[op] : 0;
         }
 
-        function getOp(i) {
+        function getOp(i: number) {
           let ret = restoreNext(ops[i], true);
           if (ops[i] instanceof Object && typeof ops[i][0] == "object" && ops[i][0][0] === 2) {
             //Add brackets if we need
@@ -194,9 +173,10 @@ function restoreSingle(ops, withScope = false) {
       {
         switch (ops[1][0]) {
           case 11:
-            ans = enBrace("__unTestedGetValue:" + enBrace(jsoToWxon(ops), '['), '{');
+            ans = enBrace("__unTestedGetValue:" + enBrace(jsoToWxOn(ops), '['), '{');
             break;
           case 3:
+            //@ts-ignore
             ans = new String(ops[1][1]);
             ans['_type'] = "var";
             break;
@@ -239,33 +219,39 @@ function restoreSingle(ops, withScope = false) {
         break;
       }
       default:
-        ans = enBrace("__unkownSpecific:" + jsoToWxon(ops), '{');
+        ans = enBrace("__unkownSpecific:" + jsoToWxOn(ops), '{');
     }
-    return scope(ans);
+    return scope(<string>ans);
   }
 }
 
-function restoreGroup(z) {
-  let ans = [];
-  for (let g in z) {
-    let singleAns = [];
-    for (let e of z[g]) {
-      singleAns.push(restoreSingle(e, false));
+function catchZ(code: string, cb: Function) {
+  const reg = /function\s+gz\$gwx(_\w+)\(\)\{(?:.|\n)*?;return\s+__WXML_GLOBAL__\.ops_cached\.\$gwx_[\w\n]+}/g
+  const allGwxFunctionMatch = code.match(reg)
+  const allFunctionMap = {}
+  const z = {}
+  const vm = DecompilationMicroApp.createVM({
+    sandbox: {__WXML_GLOBAL__: {ops_cached: {}}}
+  })
+  allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
+    const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
+    const found = funcReg.exec(funcString)
+    vm.run(funcString)
+    const hookZFunc = vm.sandbox[`gz$gwx${found[1]}`]
+    if (hookZFunc) {
+      allFunctionMap[found[1]] = hookZFunc
+      z[found[1]] = hookZFunc()
     }
-    ans[g] = singleAns;
-  }
-  return ans;
-}
-
-function restoreAll(z) {
-  if (Object.keys(z).length) return restoreGroup(z);
-  let ans = [];
-  for (let e of z) {
-    ans.push(restoreSingle(e, false));
-  }
-  return ans;
+  })
+  cb(z);
 }
 
 export function getZ(code: string, cb: Function) {
-  catchZ(code, z => cb(restoreAll(z)));
+  catchZ(code, (z: Record<any, any[]>) => {
+    let ans = {}
+    for (let gwxFuncName in z) {
+      ans[gwxFuncName] = z[gwxFuncName].map(gwxData => restoreSingle(gwxData, false))
+    }
+    cb(ans)
+  });
 }

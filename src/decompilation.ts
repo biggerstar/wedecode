@@ -9,7 +9,7 @@ import {deepmerge} from "@biggerstar/deepmerge";
 import {arrayDeduplication, commonDir, getPathInfo, jsBeautify, printLog, replaceExt, sleep} from "./common";
 import {glob} from "glob";
 import process from "node:process";
-import {tryWxml} from "./lib/decompileWxml";
+import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
 
 /**
@@ -167,7 +167,7 @@ export class DecompilationMicroApp {
   }
 
   public static createVM(vmOptions: VMOptions = {}) {
-    const domBaseHtml = `<!DOCTYPE html><html lang="en"><head></head><body></body></html>`
+    const domBaseHtml = `<!DOCTYPE html><html lang="en"><head><title>''</title></head><body></body></html>`
     const dom = new JSDOM(domBaseHtml);
     const vm_window = dom.window
     const vm_navigator = dom.window.navigator
@@ -457,19 +457,20 @@ export class DecompilationMicroApp {
     vm.run(code)
     const __wxAppCode__ = vm.sandbox['__wxAppCode__']
     if (!__wxAppCode__) return
-    for (const filepath in __wxAppCode__) {
-      // printLog(filepath)
-      if (path.extname(filepath) !== '.wxss') continue
-      __wxAppCode__[filepath]()
-      const headList: HTMLElement[] = Array.from(vm.sandbox.window.document.head.children)
-      const curStyleElement = headList[0]
-      const data = curStyleElement.innerHTML.toString()
-      if (data) {
-        DecompilationMicroApp.saveFile(this.pathInfo.resolve(filepath), vkbeautify.css(curStyleElement.innerHTML.toString()))
-        printLog(" Completed " + colors.bold(colors.gray(filepath)))
+    Object.keys(__wxAppCode__).forEach(filepath => path.extname(filepath) === '.wxss' && __wxAppCode__[filepath]())
+    const allHeadElement: HTMLStyleElement[] = Array.from(vm.sandbox.window.document.head.children)
+    allHeadElement.forEach(styleEl => {
+      const attr = styleEl.attributes.getNamedItem('wxss:path')
+      if (!attr) return
+      const outPath = attr.value
+      const cssText = styleEl.innerHTML
+      // console.log(cssText)
+      if (cssText) {
+        DecompilationMicroApp.saveFile(this.pathInfo.resolve(outPath), vkbeautify.css(cssText))
+        printLog(" Completed " + colors.bold(colors.gray(outPath)))
       }
-      headList.forEach(node => node.remove())
-    }
+
+    })
     printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
   }
 
@@ -516,11 +517,10 @@ export class DecompilationMicroApp {
     let code = foundInfo.data
     const vm = DecompilationMicroApp.createVM()
     vm.run(code);
-    // console.log(code)
-    getZ(code, (z) => {
+    getZ(code, (z: Record<string, any[]>) => {
       const {entrys, defines} = this.DecompilationModules
       for (let name in entrys) {
-        const success = tryWxml(this.outputPath, name, entrys[name].f.toString(), z, defines[name])
+        const success = tryDecompileWxml(this.outputPath, name, entrys[name].f.toString(), z, defines[name])
         if (success) {
           printLog(` Completed  ${colors.bold(colors.gray(name))}`)
         }
@@ -591,15 +591,15 @@ export class DecompilationMicroApp {
     /* 开始编译 */
     await this.unpackWxapkg()
     await this.init()
-    // await this.decompileAppJSON()
-    // await this.decompileJSON()
-    // await this.decompileJS()
-    // await this.decompileWXSS()
-    // await this.decompileWorker()
-    // await this.decompileWXS()
+    await this.decompileAppJSON()
+    await this.decompileJSON()
+    await this.decompileJS()
+    await this.decompileWXSS()
+    await this.decompileWorker()
+    await this.decompileWXS()
     await this.decompileWXML()
-    // await this.generateDefaultFiles()
-    // await this.removeCache()
+    await this.generateDefaultFiles()
+    await this.removeCache()
     printLog(` ✅  ${colors.bold(colors.green('反编译成功!'))}  ${colors.gray(this.pathInfo.packRootPath)}\n`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
     if (process.env.DEV) {
