@@ -205,10 +205,6 @@ export class DecompilationMicroApp {
       }
     })
 
-    if (this.packType === 'child' && fs.existsSync(this.pathInfo.packRootPath)) {
-      fs.rmSync(this.pathInfo.packRootPath, {recursive: true})
-    }
-
     if (cont) {
       printLog(`\n \u25B6 移除中间缓存产物成功, 总计 ${colors.yellow(cont)} 个`, {isStart: true})
     }
@@ -410,7 +406,6 @@ export class DecompilationMicroApp {
         } else {
           item.templateList.push(`<wxs module="${item.moduleName}" src="${relativePath}"/>`);
         }
-        this.wxsRefInfo[referencerOwnPath]
       })
     }
     printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
@@ -514,10 +509,9 @@ export class DecompilationMicroApp {
     vm.run(code);
     // console.log(code)
     getZ(code, (z) => {
-      let packRootPath = this.pathInfo.packRootPath
       const {entrys, defines} = this.DecompilationModules
       for (let name in entrys) {
-        tryWxml(packRootPath, name, entrys[name].f.toString(), z, defines[name])
+        tryWxml(this.outputDir, name, entrys[name].f.toString(), z, defines[name])
       }
     })
     await sleep(200)

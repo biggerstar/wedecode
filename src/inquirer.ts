@@ -2,6 +2,7 @@ import inquirer from "inquirer";
 import fs from 'node:fs'
 import colors from "picocolors";
 import path from "node:path";
+import {checkExistsWithFilePath} from "./common";
 
 type PromptsOptType = {
   message?: string
@@ -23,21 +24,16 @@ const prompts = {
         {
           type: 'waitUserInput',
           message: `${colors.blue('[自动判断单包或分包] ')} - 粘贴反编译的 '文件' 或 '目录'  路径: `,
-          name: 'path',
+          name: 'inputPath',
           validate(input: any, _): any {
-            if (!input) return
-            const targetPath = path.resolve(input)
-            if (!fs.existsSync(targetPath)) {
-              console.log(`\n${colors.red('\u274C   文件或目录不存在, 请检查!')}`)
-              return ''
-            }
-            return true
+            if (!input) return false
+            return checkExistsWithFilePath(path.resolve(input),{throw:true});
           },
         },
         {
           type: 'waitUserInput',
           message: `请输入输出目录, 默认和输入目录同级: `,
-          name: 'outPath',
+          name: 'outputPath',
         },
       ]
     )

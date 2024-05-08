@@ -1,9 +1,9 @@
 import path, {resolve} from "node:path";
 import UglifyJS from "uglify-js";
-import fs from "node:fs";
 import process from "node:process";
 import {stdout as slog} from 'single-line-log'
-import {a} from "vite/dist/node/types.d-aGj9QkWt";
+import fs from "node:fs";
+import colors from "picocolors";
 
 export function getPathInfo(dir: string, outputDir?: string) {
   const outputFolderName = path.basename(dir).replace(path.extname(dir), '')
@@ -133,4 +133,12 @@ export function arrayDeduplication<T extends any>(arr: T[], cb?: (pre: T[], cur:
     isRes ? res && pre.push(cur) : (!pre.includes(cur) && pre.push(cur))
     return pre
   }, [])
+}
+
+export function checkExistsWithFilePath(path: string, opt:{throw?:boolean}={}): boolean {
+  if (!fs.existsSync(path)) {
+    opt.throw && console.log(`\n${colors.red('\u274C   文件或目录不存在, 请检查!')}`)
+    return false
+  }
+  return true
 }

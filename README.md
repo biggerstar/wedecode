@@ -53,6 +53,7 @@
 ```shell
   git clone https://github.com/biggerstar/wedecode
   npm i pnpm
+  pnpm i
   npm run link
   wedecode
 ```
