@@ -7,13 +7,13 @@ import {JSDOM} from "jsdom";
 import vkbeautify from 'vkbeautify'
 import {deepmerge} from "@biggerstar/deepmerge";
 import {arrayDeduplication, commonDir, getPathInfo, jsBeautify, printLog, replaceExt, sleep} from "./common";
-import {glob, globSync} from "glob";
+import {glob} from "glob";
 import process from "node:process";
 import {tryWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
 
 /**
- * HOOK 增加的全局变量   DecompilationWXS  DecompilationModules
+ * HOOK 增加的全局变量   DecompilationWXS
  * */
 export class DecompilationMicroApp {
   public readonly fileList: any[]
@@ -166,7 +166,7 @@ export class DecompilationMicroApp {
     return true
   }
 
-  public createVM(vmOptions: VMOptions = {}) {
+  public static createVM(vmOptions: VMOptions = {}) {
     const domBaseHtml = `<!DOCTYPE html><html lang="en"><head></head><body></body></html>`
     const dom = new JSDOM(domBaseHtml);
     const vm_window = dom.window
@@ -242,7 +242,7 @@ export class DecompilationMicroApp {
     const foundInfo = DecompilationMicroApp.readFileUntilContainContent([this.pathInfo.appWxssPath, this.pathInfo.pageFramePath])
     if (!foundInfo.found) return
     let code = foundInfo.data
-    const vm = this.createVM()
+    const vm = DecompilationMicroApp.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global;`)
     code = code.replace(
       'var nom={};return function(n){',
@@ -415,7 +415,7 @@ export class DecompilationMicroApp {
   public async decompileJS() {
     const _this = this
     const code = DecompilationMicroApp.readFile(this.pathInfo.resolve("app-service.js"))
-    const vm = this.createVM({
+    const vm = DecompilationMicroApp.createVM({
       sandbox: {
         define(name: string, func: string) {
           let code = func.toString();
@@ -453,7 +453,7 @@ export class DecompilationMicroApp {
     if (!foundInfo.found) return
     let code = foundInfo.data
     if (!code.trim()) return
-    const vm = this.createVM()
+    const vm = DecompilationMicroApp.createVM()
     vm.run(code)
     const __wxAppCode__ = vm.sandbox['__wxAppCode__']
     if (!__wxAppCode__) return
@@ -514,8 +514,7 @@ export class DecompilationMicroApp {
     const foundInfo = DecompilationMicroApp.readFileUntilContainContent([this.pathInfo.appWxssPath, this.pathInfo.pageFramePath])
     if (!foundInfo.found) return
     let code = foundInfo.data
-    const vm = this.createVM()
-    code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global`)
+    const vm = DecompilationMicroApp.createVM()
     vm.run(code);
     // console.log(code)
     getZ(code, (z) => {
@@ -543,7 +542,7 @@ export class DecompilationMicroApp {
     const appConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appJsonPath))
     let code = DecompilationMicroApp.readFile(this.pathInfo.workersPath)
     let commPath: string = '';
-    let vm = this.createVM({
+    let vm = DecompilationMicroApp.createVM({
       sandbox: {
         require() {
         },
@@ -592,14 +591,14 @@ export class DecompilationMicroApp {
     /* 开始编译 */
     await this.unpackWxapkg()
     await this.init()
-    await this.decompileAppJSON()
-    await this.decompileJSON()
-    await this.decompileJS()
-    await this.decompileWXSS()
-    await this.decompileWorker()
-    await this.decompileWXS()
+    // await this.decompileAppJSON()
+    // await this.decompileJSON()
+    // await this.decompileJS()
+    // await this.decompileWXSS()
+    // await this.decompileWorker()
+    // await this.decompileWXS()
     await this.decompileWXML()
-    await this.generateDefaultFiles()
+    // await this.generateDefaultFiles()
     // await this.removeCache()
     printLog(` ✅  ${colors.bold(colors.green('反编译成功!'))}  ${colors.gray(this.pathInfo.packRootPath)}\n`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */

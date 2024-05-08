@@ -36,7 +36,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
                 namePool[f.arguments[0].name].v[f.arguments[1].value] = z[f.arguments[2].value];
                 break;
               case "_rz":
-                namePool[f.arguments[1].name].v[f.arguments[2].value] = z.mul[zMulName][f.arguments[3].value];
+                namePool[f.arguments[1].name].v[f.arguments[2].value] = z[zMulName][f.arguments[3].value];
                 break;
               case "_":
                 pushSon(f.arguments[0].name, namePool[f.arguments[1].name]);
@@ -61,7 +61,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
               case "_2z": {
                 let item = f.arguments[7].value;//def:item
                 let index = f.arguments[8].value;//def:index
-                let data = z.mul[zMulName][f.arguments[1].value];
+                let data = z[zMulName][f.arguments[1].value];
                 let key = escodegen.generate(f.arguments[9]).slice(1, -1);//f.arguments[9].value;//def:""
                 let obj = namePool[f.arguments[6].name];
                 let gen = namePool[f.arguments[2].name];
@@ -128,7 +128,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
                 push(dec.id.name, {
                   tag: "__textNode__",
                   textNode: true,
-                  content: z.mul[zMulName][dec.init.arguments[1].value]
+                  content: z[zMulName][dec.init.arguments[1].value]
                 });
                 break;
               case "_m": {
@@ -170,7 +170,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
                     name = v;
                   } else {
                     if (base + v < 0) mv[name] = null; else {
-                      mv[name] = z.mul[zMulName][base + v];
+                      mv[name] = z[zMulName][base + v];
                       if (base == 0) base = v;
                     }
                     name = null;
@@ -189,7 +189,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
                     for (let f of e.declarations) {
                       if (f.init.type == "LogicalExpression" && f.init.left.type == "CallExpression") {
                         if (f.init.left.callee.name == "_1") data = z[f.init.left.arguments[0].value];
-                        else if (f.init.left.callee.name == "_1z") data = z.mul[zMulName][f.init.left.arguments[1].value];
+                        else if (f.init.left.callee.name == "_1z") data = z[zMulName][f.init.left.arguments[1].value];
                       }
                     }
                   } else if (e.type == "ExpressionStatement") {
@@ -227,7 +227,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
         if (e.test.callee.name.startsWith("_o")) {
           function parse_OFun(e) {
             if (e.test.callee.name == "_o") return z[e.test.arguments[0].value];
-            else if (e.test.callee.name == "_oz") return z.mul[zMulName][e.test.arguments[1].value];
+            else if (e.test.callee.name == "_oz") return z[zMulName][e.test.arguments[1].value];
             else throw Error("Unknown if statement test callee name:" + e.test.callee.name);
           }
 

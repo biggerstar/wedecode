@@ -31,6 +31,7 @@ program
   .description('\u25B6 wxapkg 解包工具')
   .version(packages.version)
   .option("-o, --out <out-path>", '指定编译输出地目录， 正常是主包目录')
+  .option("--overwrite <overwrite>", '直接覆盖旧的产物')
   .action(async (argMap: Record<any, any>, options: Record<any, any>) => {
     await sleep(200)
     const args = options.args || []
@@ -56,10 +57,9 @@ program
     else {
       config.outputPath = config.outputPath || path.resolve(getPathInfo(getPathInfo(config.inputPath).fileDirPath).outputPath, __OUTPUT__)
     }
-
     if (fs.existsSync(config.outputPath)) {
-      const {isClearCache} = await prompts.isClearOldCache(config.outputPath)
-      if (isClearCache === '覆盖') {
+      const isClearCache = argMap.overwrite ? '覆盖' : (await prompts.isClearOldCache(config.outputPath))['isClearCache']
+      if (isClearCache === '覆盖' || argMap.overwrite) {
         fs.rmSync(config.outputPath, {recursive: true})
         printLog(`\n \u25B6 移除旧产物成功 `)
       }

@@ -19,13 +19,12 @@
 <script src="./js/app-service.js"></script>
 <script type="module">
 
-  if (window['__wxAppCode__']){
+  if (window['__wxAppCode__']) {
     for (const pathname in window['__wxAppCode__']) {
       const item = __wxAppCode__[pathname]
       if (!pathname.endsWith('.wxml')) continue
       if (typeof item === 'function') {
-        const ast = item()
-        // console.log(ast, pathname)
+        item()
       } else {
         try {
           item()
@@ -39,6 +38,7 @@
         }
         // console.log(item)
       }
+      // console.log(Object.keys(__WXML_GLOBAL__.ops_cached).length);
     }
     // const pageAst = window['__wxAppCode__']['components/accountbindphonebar/index.wxml']()
     // console.log(pageAst);
@@ -46,7 +46,7 @@
 
   // console.log(__WXML_GLOBAL__.ops_cached['$gwx_21'])
 
-  const global = window.DecompilationModules
+  // const global = window.DecompilationModules
   console.log(window.DecompilationModules)
   // console.log(global.entrys['./components/accountbindphonebar/index.wxml'].f(undefined, {}, pageAst, {
   //     "opindex": 0,

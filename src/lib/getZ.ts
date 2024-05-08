@@ -1,41 +1,23 @@
-import {VM} from "vm2";
+import {DecompilationMicroApp} from "../decompilation";
 
-function catchZGroup(code, groupPreStr, cb) {
-  const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
-  let zArr = {};
-  for (let preStr of groupPreStr) {
-    const z = [];
-    let content = code.slice(code.indexOf(preStr))
-    content = content.slice(content.indexOf("(function(z){var a=11;"));
-    content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
-    // content = content.replaceAll('\n', ';')
-    let vm = new VM({sandbox: {z: z, debugInfo: []}});
-    vm.run(content);
-    if (content.startsWith(debugPre)) {
-      for (let i = 0; i < z.length; i++) {
-        z[i] = z[i][1];
-      }
+function catchZ(code: string, cb: Function) {
+  const reg = /function\s+gz\$gwx(_\w+)\(\)\{(?:.|\n)*?;return\s+__WXML_GLOBAL__\.ops_cached\.\$gwx_[\w\n]+}/g
+  const allGwxFunctionMatch = code.match(reg)
+  const allFunctionMap = {}
+  const z = {}
+  const vm1 = DecompilationMicroApp.createVM({
+    sandbox: {__WXML_GLOBAL__: {ops_cached: {}}}
+  })
+  allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
+    const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
+    const found = funcReg.exec(funcString)
+    vm1.run(funcString)
+    const hookZFunc = vm1.sandbox[`gz$gwx${found[1]}`]
+    if (hookZFunc) {
+      allFunctionMap[found[1]] = hookZFunc
+      z[found[1]] = hookZFunc()
     }
-    zArr[preStr.match(/function gz\$gwx(\d*\_\d+)/)[1]] = z;
-  }
-  cb({"mul": zArr});
-}
-
-function catchZ(code, cb) {
-  let groupTest = code.match(/function gz\$gwx(\d*\_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*\_\d+\)/g);
-  if (groupTest !== null) {
-    return catchZGroup(code, groupTest, cb)
-  }
-  let z = [], vm = new VM({
-    sandbox: {
-      z: z,
-      debugInfo: []
-    }
-  });
-  let lastPtr = code.lastIndexOf("(z);__WXML_GLOBAL__.ops_set.$gwx=z;");
-  if (lastPtr === -1) lastPtr = code.lastIndexOf("(z);__WXML_GLOBAL__.ops_set.$gwx");
-  code = code.slice(code.lastIndexOf('(function(z){var a=11;function Z(ops){z.push(ops)}'), lastPtr + 4);
-  vm.run(code);
+  })
   cb(z);
 }
 
@@ -47,7 +29,7 @@ function restoreSingle(ops, withScope = false) {
     return withScope ? value : "{{" + value + "}}";
   }
 
-  function enBrace(value, type = '{') {
+  function enBrace(value: string, type = '{') {
     if (value.startsWith('{') || value.startsWith('[') || value.startsWith('(') || value.endsWith('}') || value.endsWith(']') || value.endsWith(')')) value = ' ' + value + ' ';
     switch (type) {
       case '{':
@@ -91,7 +73,7 @@ function restoreSingle(ops, withScope = false) {
   }
 
   let op = ops[0];
-  if (typeof op != "object") {
+  if (!Array.isArray(op)) {
     switch (op) {
       case 3://string
         return ops[1];//may cause problems if wx use it to be string
@@ -142,7 +124,6 @@ function restoreSingle(ops, withScope = false) {
           if (ops[i] instanceof Object && typeof ops[i][0] == "object" && ops[i][0][0] === 2) {
             //Add brackets if we need
             if (getPrior(op[1], ops.length) > getPrior(ops[i][0][1], ops[i].length)) ret = enBrace(ret, '(');
-            ;
           }
           return ret;
         }
@@ -266,23 +247,25 @@ function restoreSingle(ops, withScope = false) {
 
 function restoreGroup(z) {
   let ans = [];
-  for (let g in z.mul) {
+  for (let g in z) {
     let singleAns = [];
-    for (let e of z.mul[g]) singleAns.push(restoreSingle(e, false));
+    for (let e of z[g]) {
+      singleAns.push(restoreSingle(e, false));
+    }
     ans[g] = singleAns;
   }
-  let ret = [];//Keep a null array for remaining global Z array.
-  ret['mul'] = ans;
-  return ret;
-}
-
-function restoreAll(z) {
-  if (z.mul) return restoreGroup(z);
-  let ans = [];
-  for (let e of z) ans.push(restoreSingle(e, false));
   return ans;
 }
 
-export function getZ(code, cb) {
+function restoreAll(z) {
+  if (Object.keys(z).length) return restoreGroup(z);
+  let ans = [];
+  for (let e of z) {
+    ans.push(restoreSingle(e, false));
+  }
+  return ans;
+}
+
+export function getZ(code: string, cb: Function) {
   catchZ(code, z => cb(restoreAll(z)));
 }
