@@ -9,8 +9,8 @@ import {deepmerge} from "@biggerstar/deepmerge";
 import {arrayDeduplication, commonDir, getPathInfo, jsBeautify, printLog, replaceExt, sleep} from "./common";
 import {glob, globSync} from "glob";
 import process from "node:process";
-import {tryWxml} from "./lib/wuWxml";
-import {getZ} from "./lib/wuRestoreZ";
+import {tryWxml} from "./lib/decompileWxml";
+import {getZ} from "./lib/getZ";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS  DecompilationModules
@@ -23,7 +23,7 @@ export class DecompilationMicroApp {
   public packType: 'main' | 'child'   // 主包还是分包
   public allRefComponentList: string[] = []
   public allSubPackagePages: string[] = []
-  public outputDir: string   // 指定输出目录， 分解多包的时候， 该地址正常指定为主包目录
+  public outputPath: string   // 指定输出目录， 分解多包的时候， 该地址正常指定为主包目录
   public DecompilationModules: {
     modules: Record<string, Record<any, any> | Function>
     defines: Record<any, Record<any, any>>
@@ -39,11 +39,11 @@ export class DecompilationMicroApp {
   }[]> = {}
   private readonly _testCodeInfo: Record<'appService' | 'appWxss' | 'pageFrame', { path: string, code: string }>
 
-  constructor(wxapkg_path: string, outputDir?: string) {
-    this.pathInfo = getPathInfo(wxapkg_path, outputDir)
-    this.outputDir = outputDir
+  constructor(inputPath: string, outputPath?: string) {
+    this.pathInfo = getPathInfo(inputPath, outputPath)
+    this.outputPath = outputPath
     this.fileList = []
-    this.packPath = wxapkg_path
+    this.packPath = inputPath
     this._testCodeInfo = {
       appService: {
         path: './test/js/app-service.js',
@@ -62,15 +62,6 @@ export class DecompilationMicroApp {
 
   /** 保存该包中的所有文件 */
   public async unpackWxapkg() {
-    printLog(` \u25B6 当前反编译目标 (${colors.yellow(this.packType === 'main' ? '主包' : '分包')}) : ` + colors.blue(this.packPath), {
-      isEnd: true,
-      interceptor: (log) => {
-        // return !(log.includes('Decompiling') || log.includes('反编译1'))
-      }
-    });
-    printLog(` \u25B6 当前输出目录: ` + colors.blue(this.outputDir), {
-      isEnd: true,
-    });
     const __APP_BUF__ = fs.readFileSync(this.packPath)
     const fileList = this.genFileList(__APP_BUF__)
     this.fileList.splice(0, this.fileList.length, ...fileList)
@@ -117,6 +108,33 @@ export class DecompilationMicroApp {
 
   public static readFile(path: string, encoding: BufferEncoding = 'utf-8'): string {
     return fs.existsSync(path) ? fs.readFileSync(path, encoding) : ''
+  }
+
+  /**
+   * 顺序读取列表中的文件， 直到读取的文件包含内容
+   * */
+  public static readFileUntilContainContent(pathList: string[], encoding: BufferEncoding = 'utf-8'): {
+    data: string,
+    found: boolean,
+    path: string
+  } {
+    for (const filePath of pathList) {
+      if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath, encoding)
+        if (data.length) {
+          return {
+            found: true,
+            data,
+            path: filePath
+          }
+        }
+      }
+    }
+    return {
+      found: false,
+      data: '',
+      path: ''
+    }
   }
 
   public static deleteFile(path: string, opt: RmOptions & { catch?: boolean } = {}): void {
@@ -212,13 +230,18 @@ export class DecompilationMicroApp {
   }
 
   public async init() {
-    let filePath: string
-    if (fs.existsSync(this.pathInfo.appWxssPath)) {
-      filePath = this.pathInfo.appWxssPath
-    } else if (fs.existsSync(this.pathInfo.pageFramePath)) {
-      filePath = this.pathInfo.pageFramePath
-    }
-    let code = DecompilationMicroApp.readFile(filePath)
+    printLog(` \u25B6 当前反编译目标 (${colors.yellow(this.packType === 'main' ? '主包' : '分包')}) : ` + colors.blue(this.packPath), {
+      isEnd: true,
+      interceptor: (log) => {
+        return !(log.includes('Completed') || log.includes('反编译所有'))
+      }
+    });
+    printLog(` \u25B6 当前输出目录:  ${colors.blue(this.outputPath)}\n`, {
+      isEnd: true,
+    });
+    const foundInfo = DecompilationMicroApp.readFileUntilContainContent([this.pathInfo.appWxssPath, this.pathInfo.pageFramePath])
+    if (!foundInfo.found) return
+    let code = foundInfo.data
     const vm = this.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global;`)
     code = code.replace(
@@ -270,147 +293,6 @@ export class DecompilationMicroApp {
     }
   }
 
-  public async decompileJS() {
-    const _this = this
-    const code = DecompilationMicroApp.readFile(this.pathInfo.resolve("app-service.js"))
-    const vm = this.createVM({
-      sandbox: {
-        define(name: string, func: string) {
-          printLog(" Decompiling " + colors.bold(colors.gray(name)))
-          let code = func.toString();
-          code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
-          let bcode = code;
-          if (code.startsWith('"use strict";') || code.startsWith("'use strict';")) {
-            code = code.slice(13);
-          } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
-            code = code.slice(25, -5);
-          }
-          code = code.replaceAll('require("@babel', 'require("./@babel')
-
-          let beautifyCode = jsBeautify(code);
-          if (typeof beautifyCode == "undefined") {
-            beautifyCode = jsBeautify(bcode);
-          }
-          if (beautifyCode.trim()) {
-            DecompilationMicroApp.saveFile(_this.pathInfo.resolve(name), beautifyCode)
-            // console.log(name);  // 打印输出过程
-          }
-        },
-        require: () => void 0,
-        definePlugin: () => void 0,
-        requirePlugin: () => void 0,
-      }
-    })
-    code && vm.run(code)
-    const appJsPath = this.pathInfo.appJsPath
-    // if (fs.existsSync(appJsPath)) {
-    //   let appJsCode = DecompilationMicroApp.readFile(appJsPath)
-    //   appJsCode = appJsCode.replaceAll('require("@babel', 'require("./@babel')
-    //   DecompilationMicroApp.saveFile(appJsPath, appJsCode)
-    // }
-
-  }
-
-  public async decompileJSON() {
-    if (this.packType === 'child') return
-    const appConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath))
-    for (let pageHtmlPath in appConfig.page) {
-      const pageJsonConfig = appConfig.page[pageHtmlPath]
-      const pageJsonPath = pageHtmlPath.replace('.html', '.json')
-      const realJsonConfig: Record<any, any> = pageJsonConfig.window || {}
-      delete realJsonConfig.enableFSTCollect
-      delete realJsonConfig.enableFSPCollect
-      delete realJsonConfig.fstIgnoredClassNames
-      delete realJsonConfig.enableFSPImageCollect
-      delete realJsonConfig.hideCapsuleButtons
-      delete realJsonConfig.rendererType
-      delete realJsonConfig.widgetBackgroundColor
-      delete realJsonConfig.enablePageScroll
-      realJsonConfig.backgroundColorTop = realJsonConfig.backgroundTopColor
-      delete realJsonConfig.backgroundTopColor
-      delete realJsonConfig.enableBeforeUnload
-      delete realJsonConfig.alipayStyleIsolation
-      delete realJsonConfig.fstContainerId
-      delete realJsonConfig.__warning__
-      delete realJsonConfig.sdkVersionEnd
-      delete realJsonConfig.window
-      delete realJsonConfig.initialRenderingSnapshot
-      if (realJsonConfig.rendererOptions?.['skyline']) {
-        delete realJsonConfig.rendererOptions?.['skyline']['disableABTest']
-        delete realJsonConfig.rendererOptions?.['skyline']['sdkVersionBegin']
-        delete realJsonConfig.rendererOptions?.['skyline']['sdkVersionEnd']
-      }
-
-      DecompilationMicroApp.saveFile(this.pathInfo.resolve(pageJsonPath), JSON.stringify(realJsonConfig, null, 2))
-    }
-    printLog(` \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
-  }
-
-  public async decompileWXSS() {
-    let filePath: string
-    if (fs.existsSync(this.pathInfo.appWxssPath)) {
-      filePath = this.pathInfo.appWxssPath
-    } else if (fs.existsSync(this.pathInfo.pageFramePath)) {
-      filePath = this.pathInfo.pageFramePath
-    }
-    const code = DecompilationMicroApp.readFile(filePath)
-    if (!code.trim()) return
-    const vm = this.createVM()
-    vm.run(code)
-    const __wxAppCode__ = vm.sandbox['__wxAppCode__']
-    if (!__wxAppCode__) return
-    for (const filepath in __wxAppCode__) {
-      // printLog(filepath)
-      if (path.extname(filepath) !== '.wxss') continue
-      printLog(" Decompiling " + colors.bold(colors.gray(filepath)))
-      __wxAppCode__[filepath]()
-      const headList: HTMLElement[] = Array.from(vm.sandbox.window.document.head.children)
-      const curStyleElement = headList[0]
-      const data = curStyleElement.innerHTML.toString()
-      if (data) {
-        DecompilationMicroApp.saveFile(this.pathInfo.resolve(filepath), vkbeautify.css(curStyleElement.innerHTML.toString()))
-      }
-      headList.forEach(node => node.remove())
-    }
-    printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
-  }
-
-  public async decompileWXS() {
-    const decompilationWXS = this.DecompilationWXS
-    const funcHeader = 'nv_module={nv_exports:{}};';
-    const funcEnd = 'return nv_module.nv_exports;}';
-
-    function functionToWXS(wxsFunc: Function) {
-      let code = wxsFunc.toString()
-      code = code.slice(code.indexOf(funcHeader) + funcHeader.length, code.lastIndexOf(funcEnd)).replaceAll('nv_', '')
-      return jsBeautify(code)
-    }
-
-    for (const wxsPath in decompilationWXS) {   // 处理输出 wxs 文件
-      if (path.extname(wxsPath) !== '.wxs') continue
-      printLog(" Decompiling " + colors.bold(colors.gray(wxsPath)))
-      const wxsFunc = decompilationWXS[wxsPath]
-      const wxsOutputShortPath = wxsPath.replace('p_./', './').replace('m_./', './')
-      DecompilationMicroApp.saveFile(this.pathInfo.resolve(wxsOutputShortPath), functionToWXS(wxsFunc))
-    }
-    const shortDecompilationWXS = {}
-    for (const pathName in this.DecompilationWXS) {
-      shortDecompilationWXS[pathName.replace('m_', '').replace('p_', '')] = this.DecompilationWXS[pathName]
-    }
-    for (const referencerOwnPath in this.wxsRefInfo) {
-      const wxsInPageList = this.wxsRefInfo[referencerOwnPath]
-      wxsInPageList.forEach(item => {
-        let relativePath = path.relative(this.pathInfo.resolve(referencerOwnPath, '../'), this.pathInfo.resolve(item.fileSrc))
-        if (item.src.includes(":")) {
-          item.templateList.push(`<wxs module="${item.moduleName}>"\n${functionToWXS(shortDecompilationWXS[item.src])}\n</wxs>`);
-        } else {
-          item.templateList.push(`<wxs module="${item.moduleName}" src="${relativePath}"/>`);
-        }
-      })
-    }
-    printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
-  }
-
   public async decompileAppJSON() {
     if (this.packType === 'child') return
     const configFilePath = this.pathInfo.appJsonPath
@@ -440,7 +322,7 @@ export class DecompilationMicroApp {
       })
       subPackages = subPackages.filter(sub => (sub.pages || []).length > 0)
       if (Object.keys(subPackages).length >= 100) {
-        console.log(` ▶ ${colors.red('程序主动结束编译, 因为 subPackages 包个数超过限制 100')}`)
+        console.log(` ▶ ${colors.red('程序主动结束编译, 因为 subPackages 包个数超过限制 100, 超过微信限制')}`)
         process.exit()
       }
       appConfig.subPackages = subPackages;
@@ -496,14 +378,142 @@ export class DecompilationMicroApp {
     printLog(` \u25B6 反编译 app.json 文件成功. \n`, {isStart: true})
   }
 
-  public async decompileWXML() {
-    let filePath: string
-    if (fs.existsSync(this.pathInfo.appWxssPath)) {
-      filePath = this.pathInfo.appWxssPath
-    } else if (fs.existsSync(this.pathInfo.pageFramePath)) {
-      filePath = this.pathInfo.pageFramePath
+  public async decompileJSON() {
+    if (this.packType === 'child') return
+    const appConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath))
+    for (let pageHtmlPath in appConfig.page) {
+      const pageJsonConfig = appConfig.page[pageHtmlPath]
+      const pageJsonPath = pageHtmlPath.replace('.html', '.json')
+      const realJsonConfig: Record<any, any> = pageJsonConfig.window || {}
+      delete realJsonConfig.enableFSTCollect
+      delete realJsonConfig.enableFSPCollect
+      delete realJsonConfig.fstIgnoredClassNames
+      delete realJsonConfig.enableFSPImageCollect
+      delete realJsonConfig.hideCapsuleButtons
+      delete realJsonConfig.rendererType
+      delete realJsonConfig.widgetBackgroundColor
+      delete realJsonConfig.enablePageScroll
+      realJsonConfig.backgroundColorTop = realJsonConfig.backgroundTopColor
+      delete realJsonConfig.backgroundTopColor
+      delete realJsonConfig.enableBeforeUnload
+      delete realJsonConfig.alipayStyleIsolation
+      delete realJsonConfig.fstContainerId
+      delete realJsonConfig.__warning__
+      delete realJsonConfig.sdkVersionEnd
+      delete realJsonConfig.window
+      delete realJsonConfig.initialRenderingSnapshot
+      if (realJsonConfig.rendererOptions?.['skyline']) {
+        delete realJsonConfig.rendererOptions?.['skyline']['disableABTest']
+        delete realJsonConfig.rendererOptions?.['skyline']['sdkVersionBegin']
+        delete realJsonConfig.rendererOptions?.['skyline']['sdkVersionEnd']
+      }
+      DecompilationMicroApp.saveFile(this.pathInfo.resolve(pageJsonPath), JSON.stringify(realJsonConfig, null, 2))
     }
-    let code = DecompilationMicroApp.readFile(filePath)
+    printLog(` \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
+  }
+
+  public async decompileJS() {
+    const _this = this
+    const code = DecompilationMicroApp.readFile(this.pathInfo.resolve("app-service.js"))
+    const vm = this.createVM({
+      sandbox: {
+        define(name: string, func: string) {
+          let code = func.toString();
+          code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
+          let bcode = code;
+          if (code.startsWith('"use strict";') || code.startsWith("'use strict';")) {
+            code = code.slice(13);
+          } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
+            code = code.slice(25, -5);
+          }
+          code = code.replaceAll('require("@babel', 'require("./@babel')
+
+          let beautifyCode = jsBeautify(code);
+          if (typeof beautifyCode == "undefined") {
+            beautifyCode = jsBeautify(bcode);
+          }
+          if (beautifyCode.trim()) {
+            DecompilationMicroApp.saveFile(_this.pathInfo.resolve(name), beautifyCode)
+            printLog(" Completed " + colors.bold(colors.gray(name)))
+          }
+        },
+        require: () => void 0,
+        definePlugin: () => void 0,
+        requirePlugin: () => void 0,
+      }
+    })
+    if (code) {
+      vm.run(code)
+      printLog(` \u25B6 反编译所有 js 文件成功. \n`, {isStart: true})
+    }
+  }
+
+  public async decompileWXSS() {
+    const foundInfo = DecompilationMicroApp.readFileUntilContainContent([this.pathInfo.appWxssPath, this.pathInfo.pageFramePath])
+    if (!foundInfo.found) return
+    let code = foundInfo.data
+    if (!code.trim()) return
+    const vm = this.createVM()
+    vm.run(code)
+    const __wxAppCode__ = vm.sandbox['__wxAppCode__']
+    if (!__wxAppCode__) return
+    for (const filepath in __wxAppCode__) {
+      // printLog(filepath)
+      if (path.extname(filepath) !== '.wxss') continue
+      __wxAppCode__[filepath]()
+      const headList: HTMLElement[] = Array.from(vm.sandbox.window.document.head.children)
+      const curStyleElement = headList[0]
+      const data = curStyleElement.innerHTML.toString()
+      if (data) {
+        DecompilationMicroApp.saveFile(this.pathInfo.resolve(filepath), vkbeautify.css(curStyleElement.innerHTML.toString()))
+        printLog(" Completed " + colors.bold(colors.gray(filepath)))
+      }
+      headList.forEach(node => node.remove())
+    }
+    printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
+  }
+
+  public async decompileWXS() {
+    const decompilationWXS = this.DecompilationWXS
+    const funcHeader = 'nv_module={nv_exports:{}};';
+    const funcEnd = 'return nv_module.nv_exports;}';
+
+    function functionToWXS(wxsFunc: Function) {
+      let code = wxsFunc.toString()
+      code = code.slice(code.indexOf(funcHeader) + funcHeader.length, code.lastIndexOf(funcEnd)).replaceAll('nv_', '')
+      return jsBeautify(code)
+    }
+
+    for (const wxsPath in decompilationWXS) {   // 处理输出 wxs 文件
+      if (path.extname(wxsPath) !== '.wxs') continue
+      const wxsFunc = decompilationWXS[wxsPath]
+      const wxsOutputShortPath = wxsPath.replace('p_./', './').replace('m_./', './')
+      DecompilationMicroApp.saveFile(this.pathInfo.resolve(wxsOutputShortPath), functionToWXS(wxsFunc))
+      printLog(" Completed " + colors.bold(colors.gray(wxsPath)))
+    }
+    const shortDecompilationWXS = {}
+    for (const pathName in this.DecompilationWXS) {
+      shortDecompilationWXS[pathName.replace('m_', '').replace('p_', '')] = this.DecompilationWXS[pathName]
+    }
+    for (const referencerOwnPath in this.wxsRefInfo) {
+      const wxsInPageList = this.wxsRefInfo[referencerOwnPath]
+      wxsInPageList.forEach(item => {
+        let relativePath = path.relative(this.pathInfo.resolve(referencerOwnPath, '../'), this.pathInfo.resolve(item.fileSrc))
+        if (item.src.includes(":")) {
+          item.templateList.push(`<wxs module="${item.moduleName}>"\n${functionToWXS(shortDecompilationWXS[item.src])}\n</wxs>`);
+        } else {
+          item.templateList.push(`<wxs module="${item.moduleName}" src="${relativePath}"/>`);
+        }
+      })
+    }
+    printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
+  }
+
+
+  public async decompileWXML() {
+    const foundInfo = DecompilationMicroApp.readFileUntilContainContent([this.pathInfo.appWxssPath, this.pathInfo.pageFramePath])
+    if (!foundInfo.found) return
+    let code = foundInfo.data
     const vm = this.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global`)
     vm.run(code);
@@ -511,7 +521,10 @@ export class DecompilationMicroApp {
     getZ(code, (z) => {
       const {entrys, defines} = this.DecompilationModules
       for (let name in entrys) {
-        tryWxml(this.outputDir, name, entrys[name].f.toString(), z, defines[name])
+        const success = tryWxml(this.outputPath, name, entrys[name].f.toString(), z, defines[name])
+        if (success) {
+          printLog(` Completed  ${colors.bold(colors.gray(name))}`)
+        }
       }
     })
     await sleep(200)
@@ -550,7 +563,7 @@ export class DecompilationMicroApp {
   }
 
   /**
-   * 添加组件构成必要素的默认 json wxs, wxml, wxss 文件
+   * 生成组件构成必要素的默认 json wxs, wxml, wxss 文件
    * */
   public async generateDefaultFiles() {
     const allPageAbsolutePathList = glob.globSync(`${this.pathInfo.packRootPath}/**/*.html`)
@@ -576,27 +589,18 @@ export class DecompilationMicroApp {
   }
 
   public async decompileAll() {
-    if (this.packType === 'child') {
-
-    }
-
-    /* 移除旧的编译产物 */
-    if (fs.existsSync(this.pathInfo.packRootPath)) {
-      fs.rmSync(this.pathInfo.packRootPath, {recursive: true})
-      printLog(` \u25B6 已清空旧产物:  ${this.pathInfo.packRootPath}`)
-    }
     /* 开始编译 */
     await this.unpackWxapkg()
     await this.init()
     await this.decompileAppJSON()
-    await this.decompileWXML()
-    await this.decompileWXS()
-    await this.decompileJS()
     await this.decompileJSON()
+    await this.decompileJS()
     await this.decompileWXSS()
     await this.decompileWorker()
+    await this.decompileWXS()
+    await this.decompileWXML()
     await this.generateDefaultFiles()
-    await this.removeCache()
+    // await this.removeCache()
     printLog(` ✅  ${colors.bold(colors.green('反编译成功!'))}  ${colors.gray(this.pathInfo.packRootPath)}\n`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
     if (process.env.DEV) {

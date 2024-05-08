@@ -4,11 +4,24 @@ import {Command} from "commander";
 import packages from '../../../package.json';
 import path from 'node:path';
 import fs from 'node:fs';
-import process, {cwd} from "node:process";
 import colors from 'picocolors'
 import {DecompilationMicroApp} from "../../decompilation";
 import {checkExistsWithFilePath, clearScreen, getPathInfo, printLog, sleep} from "../../common";
 import prompts from "../../inquirer";
+
+
+/**
+ * @param {String} inputPath   wxapkg包路径
+ * @param {String} outputPath  输出目录
+ * */
+async function singlePackMode(inputPath: string, outputPath: string) {
+  if (path.extname(inputPath) !== '.wxapkg') {
+    console.log(colors.red('\u274C  不是一个包'), inputPath)
+    return
+  }
+  const decompilationMicroApp = new DecompilationMicroApp(inputPath, outputPath)
+  await decompilationMicroApp.decompileAll()
+}
 
 const program = new Command();
 
@@ -28,7 +41,7 @@ program
     }
     const __OUTPUT__ = '__OUTPUT__'
     clearScreen()
-    printLog(colors.bgRed(colors.yellow(`\n\t🔶  \t  ${colors.bold('小程序反编译工具 wedecode')}\t\t🔶\t\n`)), {
+    printLog(colors.bgRed(colors.yellow(`\n\t🔶  \t  ${colors.bold('wxapkg 反编译工具 | wedecode')}\t\t🔶\t\n`)), {
       isStart: true,
       space1: '\n',
       space2: '\n',
@@ -44,20 +57,14 @@ program
       config.outputPath = config.outputPath || path.resolve(getPathInfo(getPathInfo(config.inputPath).fileDirPath).outputPath, __OUTPUT__)
     }
 
-    /**
-     * @param {String} filePath   wxapkg包路径
-     * @param {String} targetOutPath  输出目录
-     * */
-    async function singlePackMode(filePath: string, targetOutPath: string) {
-      if (path.extname(filePath) !== '.wxapkg') {
-        console.log(colors.red('\u274C  不是一个包'), filePath)
-        return
+    if (fs.existsSync(config.outputPath)) {
+      const {isClearCache} = await prompts.isClearOldCache(config.outputPath)
+      if (isClearCache === '覆盖') {
+        fs.rmSync(config.outputPath, {recursive: true})
+        printLog(`\n \u25B6 移除旧产物成功 `)
       }
-      const decompilationMicroApp = new DecompilationMicroApp(filePath, targetOutPath)
-      await decompilationMicroApp.decompileAll()
     }
-
-    printLog(`\n \u25B6 当前操作类型: ${colors.yellow(isDirectory ? '分包模式' : '单包模式')}`, {isEnd: true})
+    printLog(` \u25B6 当前操作类型: ${colors.yellow(isDirectory ? '分包模式' : '单包模式')}`, {isEnd: true})
 
     if (isDirectory) {
       const wxapkgPathList = fs.readdirSync(config.inputPath).filter(str => {

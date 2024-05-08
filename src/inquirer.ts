@@ -38,5 +38,20 @@ const prompts = {
       ]
     )
   },
+  isClearOldCache(cachePath=''){
+    return inquirer['prompt'](
+      [
+        {
+          type: 'list',
+          message: `输出目录中存在上次旧的编译产物，是否覆盖 ?  ${cachePath}`,
+          name: 'isClearCache',
+          choices: [
+            '覆盖',
+            '跳过',
+          ],
+        },
+      ]
+    )
+  }
 }
 export default prompts

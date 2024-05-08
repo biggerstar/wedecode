@@ -360,10 +360,11 @@ function doWxml(state: any, dir: string, name: string, code: string, z: {}, rDs:
 }
 
 export function tryWxml(dir: string, name: string, code: string, z: any[], rDs: any) {
-  printLog(` Decompiling  ${colors.bold(colors.gray(name))}`)
   try {
     doWxml([null], dir, name, code, z, rDs);
+    return true
   } catch (e) {
+    return false
   }
 }
 
