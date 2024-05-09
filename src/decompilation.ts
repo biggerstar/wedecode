@@ -20,7 +20,12 @@ export class DecompilationMicroApp {
   public pathInfo: ReturnType<typeof getPathInfo>
   public wxsList: any[]
   public packPath: string
-  public packType: 'main' | 'child'   // 主包还是分包
+  public packType: 'main' | 'child' | 'independent'   // 主包 | 分包 | 独立分包
+  public packTypeMapping = {
+    main: '主包',
+    child: '分包',
+    independent: '独立分包',
+  }
   public codeInfo: {
     appConfigJson: string,
     appWxss: string,
@@ -199,17 +204,29 @@ export class DecompilationMicroApp {
     this.fileList.splice(0, this.fileList.length, ...fileList)
     let childRootPackNameInMainPackDir = ''
     let childRootPath = ''
+    this.packType = 'child'
     for (let info of this.fileList) {
       const fileName = info.name.startsWith("/") ? info.name.slice(1) : info.name
       const data = __APP_BUF__.subarray(info.off, info.off + info.size)
-      childRootPackNameInMainPackDir = fileName.split('/')[0]
+      /*------------------------------------------------*/
+      childRootPackNameInMainPackDir = fileName.split('/').length > 1 ? fileName.split('/')[0] : fileName // 获取主包子文件夹或者分包在主包中的第一层子文件夹名称
       const tempArr = fileName.split('/')
       tempArr.shift()
       const relativeChildPackDir = tempArr.join('/')
       childRootPath = this.pathInfo.outputResolve(childRootPackNameInMainPackDir)
+      if (path.basename(fileName).includes('app-config.json')) {
+        const appConfig = JSON.parse(data.toString())
+        const foundSubPackages = (appConfig.subPackages || []).find((sub: any) => sub.root === `${childRootPackNameInMainPackDir}/`)
+        if (!foundSubPackages) {
+          this.packType = 'main'
+        } else if (typeof foundSubPackages === 'object' && foundSubPackages['independent']) {
+          this.packType = 'independent'
+        }
+      }
       DecompilationMicroApp.saveFile(path.resolve(childRootPath, relativeChildPackDir), data)
+      /*------------------------------------------------*/
     }
-    this.packType = fs.existsSync(this.pathInfo.outputResolve('app-config.json')) ? 'main' : 'child'
+    // console.log(this.packType)
     if (this.packType === 'main') {
       this.pathInfo.setPackRootPath(this.pathInfo.outputPath)
     } else {
@@ -218,7 +235,6 @@ export class DecompilationMicroApp {
       }
       this.pathInfo.setPackRootPath(childRootPath)
     }
-    console.log({...this.pathInfo})
     printLog(`\n \u25B6 解小程序压缩包成功! 文件总数: ${colors.green(this.fileList.length)}`, {isStart: true})
   }
 
@@ -227,11 +243,11 @@ export class DecompilationMicroApp {
    * 记住一个准则： 读取都使用 packRootPath 路径， 保存都使用 outputPath 路径
    * */
   public async init() {
-    printLog(` \u25B6 当前反编译目标 (${colors.yellow(this.packType === 'main' ? '主包' : '分包')}) : ` + colors.blue(this.packPath));
+    await this.unpackWxapkg()
+    printLog(` \u25B6 当前反编译目标 (${colors.yellow(this.packTypeMapping[this.packType])}) : ` + colors.blue(this.packPath));
     printLog(` \u25B6 当前输出目录:  ${colors.blue(this.pathInfo.outputPath)}\n`, {
       isEnd: true,
     });
-    await this.unpackWxapkg()
     this.codeInfo = {
       appConfigJson: DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath),
       appWxss: DecompilationMicroApp.readFile(this.pathInfo.appWxssPath),
@@ -243,6 +259,7 @@ export class DecompilationMicroApp {
     for (const name in this.codeInfo) {
       loadInfo[name] = this.codeInfo[name].length
     }
+    // console.log({...this.pathInfo})
     console.log(loadInfo)
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame
     if (!code) return
