@@ -33,16 +33,17 @@
   "dependencies": {
     "@biggerstar/deepmerge": "^1.0.3",
     "@types/inquirer": "^9.0.7",
+    "@types/js-beautify": "^1.14.3",
     "@types/single-line-log": "^1.1.2",
     "commander": "^12.0.0",
     "escodegen": "^1.14.3",
     "esprima": "^4.0.1",
     "glob": "^10.3.12",
     "inquirer": "^9.2.20",
+    "js-beautify": "^1.15.1",
     "jsdom": "^24.0.0",
     "picocolors": "^1.0.0",
     "single-line-log": "^1.1.2",
-    "uglify-js": "^3.17.4",
     "vite-run": "^1.7.0",
     "vkbeautify": "^0.99.3",
     "vm2": "^3.9.19"
@@ -52,8 +53,8 @@
     "@types/esprima": "^4.0.6",
     "@types/jsdom": "^21.1.6",
     "@types/node": "^20.12.8",
-    "@types/uglify-js": "^3.17.5",
     "@types/vkbeautify": "^0.99.4",
+    "rollup-plugin-copy": "^3.5.0",
     "vite": "^5.2.11"
   }
 }

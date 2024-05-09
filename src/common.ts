@@ -1,9 +1,9 @@
 import path from "node:path";
-import UglifyJS from "uglify-js";
 import process from "node:process";
 import {stdout as slog} from 'single-line-log'
 import fs from "node:fs";
 import colors from "picocolors";
+import JS from 'js-beautify'
 
 export function getPathInfo(dir: string, outputDir: string) {
   const outputFolderName = path.basename(dir).replace(path.extname(dir), '')
@@ -53,9 +53,8 @@ export function getPathInfo(dir: string, outputDir: string) {
 }
 
 export function jsBeautify(code: string) {
-  return UglifyJS.minify(code, {compress: false, mangle: false, output: {beautify: true, comments: true}}).code;
+  return JS.js_beautify(code)
 }
-
 
 /** 深度遍历 */
 export function traverseDOMTree(

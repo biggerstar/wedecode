@@ -11,6 +11,7 @@ import {glob} from "glob";
 import process from "node:process";
 import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
+import {a} from "vite/dist/node/types.d-aGj9QkWt";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS
@@ -24,7 +25,7 @@ export class DecompilationMicroApp {
   public packTypeMapping = {
     main: '主包',
     child: '分包',
-    independent: '独立分包',
+    independent: '独立分包',   // 还是分包， 只是不依赖主包模块
   }
   public codeInfo: {
     appConfigJson: string,
@@ -48,6 +49,7 @@ export class DecompilationMicroApp {
     moduleName?: string,
     templateList?: string[]
   }[]> = {}
+  public allPloyFill: { fullPath: string, ployfillPath: string }[] = []
   private readonly _testCodeInfo: Record<'appService' | 'appWxss' | 'pageFrame', { path: string, code: string }>
 
   constructor(inputPath: string, outputPath?: string) {
@@ -255,6 +257,24 @@ export class DecompilationMicroApp {
       pageFrame: DecompilationMicroApp.readFile(this.pathInfo.pageFramePath),
       workers: DecompilationMicroApp.readFile(this.pathInfo.workersPath),
     }
+    //  用户 ployfill
+    const customHeaderPathPart = path.resolve(this.pathInfo.inputDirPath, 'ployfill')
+    const customPloyfillGlobMatch = path.resolve(customHeaderPathPart, './**/*.js')
+    const customPloyfill: string[] = glob.globSync(customPloyfillGlobMatch)
+    const customPloyfillInfo = customPloyfill.map(str => {
+      return {fullPath: str, ployfillPath: path.relative(customHeaderPathPart, str)}
+    })
+    //  内置 ployfill
+    const urls = new URL(import.meta.url)
+    const headerPathPart = path.resolve(path.dirname(urls.pathname), 'ployfill')
+    const ployfillGlobMatch = path.resolve(headerPathPart, './**/*.js')
+    let builtinPloyfill: string[] = glob.globSync(ployfillGlobMatch)
+    const builtinPloyfillInfo = builtinPloyfill.map(str => {
+      return {fullPath: str, ployfillPath: path.relative(headerPathPart, str)}
+    })
+    this.allPloyFill = [...customPloyfillInfo, ...builtinPloyfillInfo]
+
+    // console.log(this.allPloyFill)
     const loadInfo = {}
     for (const name in this.codeInfo) {
       loadInfo[name] = this.codeInfo[name].length
@@ -317,7 +337,7 @@ export class DecompilationMicroApp {
    * 解析出 app.json 文件， 只有主包需要处理
    * */
   public async decompileAppJSON() {
-    if (this.packType === 'child') return
+    if (this.packType !== 'main') return
     await sleep(200)
     const appConfigString = this.codeInfo.appConfigJson
     const appConfig: Record<any, any> = JSON.parse(appConfigString)
@@ -404,7 +424,7 @@ export class DecompilationMicroApp {
    * 处理子包 json，只需要处理主包， 子包解压自带 json
    * */
   public async decompileJSON() {
-    if (this.packType === 'child') return
+    if (this.packType !== 'main') return
     const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)
     for (let pageHtmlPath in appConfig.page) {
       const pageJsonConfig = appConfig.page[pageHtmlPath]
@@ -442,26 +462,30 @@ export class DecompilationMicroApp {
 
   public async decompileJS() {
     const _this = this
-    const code = this.codeInfo.appService
     const vm = DecompilationMicroApp.createVM({
       sandbox: {
         define(name: string, func: string) {
-          let code = func.toString();
-          code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
-          let bcode = code;
-          if (code.startsWith('"use strict";') || code.startsWith("'use strict';")) {
-            code = code.slice(13);
-          } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
-            code = code.slice(25, -5);
+          /* 看看是否有 ployfill,  有的话直接使用注入 ployfill */
+          const foundPloyfill = _this.allPloyFill.find(item => {
+            return name.endsWith(item.ployfillPath)
+          })
+          let resultCode: string = ''
+          if (foundPloyfill) {
+            resultCode = DecompilationMicroApp.readFile(foundPloyfill.fullPath)
+          } else {
+            let code = func.toString();
+            code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
+            resultCode = code;
+            if (code.startsWith('"use strict";') || code.startsWith("'use strict';")) {
+              code = code.slice(13);
+            } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
+              code = code.slice(25, -5);
+            }
+            code = code.replaceAll('require("@babel', 'require("./@babel')
+            resultCode = jsBeautify(code);
           }
-          code = code.replaceAll('require("@babel', 'require("./@babel')
-
-          let beautifyCode = jsBeautify(code);
-          if (typeof beautifyCode == "undefined") {
-            beautifyCode = jsBeautify(bcode);
-          }
-          if (beautifyCode.trim()) {
-            DecompilationMicroApp.saveFile(_this.pathInfo.outputResolve(name), beautifyCode)
+          if (resultCode.trim()) {
+            DecompilationMicroApp.saveFile(_this.pathInfo.outputResolve(name), resultCode)
             printLog(" Completed " + colors.bold(colors.gray(name)))
           }
         },
@@ -470,8 +494,8 @@ export class DecompilationMicroApp {
         requirePlugin: () => void 0,
       }
     })
-    if (code) {
-      vm.run(code)
+    if (this.codeInfo.appService) {
+      vm.run(this.codeInfo.appService)
       printLog(` \u25B6 反编译所有 js 文件成功. \n`, {isStart: true})
     }
   }
