@@ -331,7 +331,7 @@ function elemToString(elem: Record<any, any>, dep: any) {
   return trimMerge(rets);
 }
 
-function doDecompileWxml(state: any, dir: string, name: string, code: string, z: {}, rDs: any) {
+function getDecompiledWxml(state: any, code: string, z: {}, rDs: any) {
   let rName = code.slice(code.lastIndexOf("return") + 6).replace(/[\;\}]/g, "").trim();
   code = code.slice(code.indexOf("\n"), code.lastIndexOf("return")).trim();
   let r = {son: []};
@@ -355,16 +355,14 @@ function doDecompileWxml(state: any, dir: string, name: string, code: string, z:
     analyze(esprima.parseScript(code).body, z, {[rName]: r}, {[rName]: r});
     result.unshift(elemToString(r, 0));
   }
-  name = path.resolve(dir, name);
-  DecompilationMicroApp.saveFile(name, result.join(""), {force: true});
+  return result.join("")
 }
 
-export function tryDecompileWxml(dir: string, name: string, code: string, z: Record<string, any[]>, rDs: any) {
+export function tryDecompileWxml(code: string, z: Record<string, any[]>, rDs: any): string {
   try {
-    doDecompileWxml([null], dir, name, code, z, rDs);
-    return true
+    return getDecompiledWxml([null], code, z, rDs)
   } catch (e) {
-    return false
+    return ''
   }
 }
 

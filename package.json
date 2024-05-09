@@ -13,8 +13,9 @@
     "unlink": "pnpm unlink",
     "release:npm": "vite-run build -y && npm publish",
     "test: cmd": "wedecode",
-    "dev:unpack:file": "DEV=true wedecode --overwrite=true ./pkg/old",
-    "dev:unpack:dir": "DEV=true wedecode ./pkg/meituan/",
+    "dev:unpack:file": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mt/__APP__.wxapkg",
+    "dev:unpack:dir": "DEV=true  wedecode --overwrite=true -o OUTPUT pkg/mt",
+    "dev:unpack:childPack": "DEV=true  wedecode --overwrite=true -o OUTPUT pkg/mt/_food2_.wxapkg",
     "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
   },
   "repository": {

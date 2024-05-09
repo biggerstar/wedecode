@@ -40,7 +40,6 @@ program
       inputPath: args[0],
       outputPath: argMap.out
     }
-    const __OUTPUT__ = '__OUTPUT__'
     clearScreen()
     printLog(colors.bgRed(colors.yellow(`\n\t🔶  \t  ${colors.bold('wxapkg 反编译工具 | wedecode')}\t\t🔶\t\n`)), {
       isStart: true,
@@ -53,10 +52,6 @@ program
     if (!checkExistsWithFilePath(config.inputPath, {throw: true})) return
     // 经过下面转换， 文件输出位置最终都会在改小程序包同级目录下的 __OUTPUT__ 文件夹中输出
     const isDirectory = fs.statSync(config.inputPath).isDirectory()
-    if (isDirectory) config.outputPath = config.outputPath || path.resolve(config.inputPath, __OUTPUT__)
-    else {
-      config.outputPath = config.outputPath || path.resolve(getPathInfo(getPathInfo(config.inputPath).fileDirPath).outputPath, __OUTPUT__)
-    }
     if (fs.existsSync(config.outputPath)) {
       const isClearCache = argMap.overwrite ? '覆盖' : (await prompts.isClearOldCache(config.outputPath))['isClearCache']
       if (isClearCache === '覆盖' || argMap.overwrite) {

@@ -1,27 +1,54 @@
-import path, {resolve} from "node:path";
+import path from "node:path";
 import UglifyJS from "uglify-js";
 import process from "node:process";
 import {stdout as slog} from 'single-line-log'
 import fs from "node:fs";
 import colors from "picocolors";
 
-export function getPathInfo(dir: string, outputDir?: string) {
+export function getPathInfo(dir: string, outputDir: string) {
   const outputFolderName = path.basename(dir).replace(path.extname(dir), '')
-  const packRootPath = path.resolve(path.dirname(dir), outputFolderName)
+  let _packRootPath = path.resolve(path.dirname(dir), outputFolderName)
   const resolve = (_new_resolve_path: string, ...args: string[]): string => {
-    return path.resolve((outputDir || packRootPath), _new_resolve_path, ...args)
+    return path.resolve(_packRootPath, _new_resolve_path, ...args)
+  }
+  const outputResolve = (_new_resolve_path: string, ...args: string[]): string => {
+    return path.resolve(outputDir, _new_resolve_path, ...args)
   }
   return {
-    fileDirPath: path.dirname(dir),
-    outputPath: outputDir || packRootPath,
-    packRootPath: packRootPath,
+    /** 相对当前包作为根路径路径进行解析 */
     resolve,
-    appJsonPath: resolve('app.json'),
-    appConfigJsonPath: resolve('app-config.json'),
-    appWxssPath: resolve('app-wxss.js'),
-    workersPath: resolve('workers.js'),
-    pageFramePath: resolve('page-frame.js'),
-    appJsPath: resolve('app.js'),
+    outputResolve,
+    inputPackName: path.basename(dir).replace(path.extname(dir), ''),
+    inputDirPath: path.dirname(dir),
+    inputFilePath: dir,
+    outputPath: outputDir,
+    setPackRootPath(rootPath: string) {
+      _packRootPath = rootPath
+    },
+    get packRootPath() {
+      return _packRootPath
+    },
+    get appJsonPath() {
+      return resolve(_packRootPath, 'app.json')
+    },
+    get appConfigJsonPath() {
+      return resolve(_packRootPath, 'app-config.json')
+    },
+    get appWxssPath() {
+      return resolve(_packRootPath, 'app-wxss.js')
+    },
+    get workersPath() {
+      return resolve(_packRootPath, 'workers.js')
+    },
+    get pageFramePath() {
+      return resolve(_packRootPath, 'page-frame.js')
+    },
+    get appJsPath() {
+      return resolve(_packRootPath, 'app.js')
+    },
+    get appServicePath() {
+      return resolve(_packRootPath, 'app-service.js')
+    },
   }
 }
 
@@ -66,7 +93,7 @@ export function printLog(log: string, opt: {
   nativeOnly?: boolean,
   interceptor?: (log: string) => any
 } = {}) {
-  if (!log.trim()) return
+  if (!log || !log.trim()) return
   if (opt.interceptor) printLog['interceptor'] = opt.interceptor
   if (opt.space1) printLog['space1'] = opt.space1
   if (opt.space2) printLog['space2'] = opt.space2
@@ -135,7 +162,7 @@ export function arrayDeduplication<T extends any>(arr: T[], cb?: (pre: T[], cur:
   }, [])
 }
 
-export function checkExistsWithFilePath(path: string, opt:{throw?:boolean}={}): boolean {
+export function checkExistsWithFilePath(path: string, opt: { throw?: boolean } = {}): boolean {
   if (!fs.existsSync(path)) {
     opt.throw && console.log(`\n${colors.red('\u274C   文件或目录不存在, 请检查!')}`)
     return false

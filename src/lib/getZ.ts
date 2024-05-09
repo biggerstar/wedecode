@@ -226,23 +226,25 @@ function restoreSingle(ops: any, withScope = false) {
 }
 
 function catchZ(code: string, cb: Function) {
-  const reg = /function\s+gz\$gwx(_\w+)\(\)\{(?:.|\n)*?;return\s+__WXML_GLOBAL__\.ops_cached\.\$gwx_[\w\n]+}/g
+  const reg = /function\s+gz\$gwx(\w+)\(\)\{(?:.|\n)*?;return\s+__WXML_GLOBAL__\.ops_cached\.\$gwx[\w\n]+}/g
   const allGwxFunctionMatch = code.match(reg)
   const allFunctionMap = {}
   const z = {}
   const vm = DecompilationMicroApp.createVM({
     sandbox: {__WXML_GLOBAL__: {ops_cached: {}}}
   })
-  allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
-    const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
-    const found = funcReg.exec(funcString)
-    vm.run(funcString)
-    const hookZFunc = vm.sandbox[`gz$gwx${found[1]}`]
-    if (hookZFunc) {
-      allFunctionMap[found[1]] = hookZFunc
-      z[found[1]] = hookZFunc()
-    }
-  })
+  if (allGwxFunctionMatch){
+    allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
+      const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
+      const found = funcReg.exec(funcString)
+      vm.run(funcString)
+      const hookZFunc = vm.sandbox[`gz$gwx${found[1]}`]
+      if (hookZFunc) {
+        allFunctionMap[found[1]] = hookZFunc
+        z[found[1]] = hookZFunc()
+      }
+    })
+  }
   cb(z);
 }
 
