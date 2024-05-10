@@ -109,7 +109,7 @@ function getBaseConfig(options: ViteRunHandleFunctionOptions) {
     plugins: [
       copy({
         targets: [
-          { src: 'src/ployfill', dest: 'dist' },
+          { src: 'src/polyfill', dest: 'dist' },
         ]
       }),
       viteRunLogPlugin({

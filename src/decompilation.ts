@@ -257,16 +257,16 @@ export class DecompilationMicroApp {
       pageFrame: DecompilationMicroApp.readFile(this.pathInfo.pageFramePath),
       workers: DecompilationMicroApp.readFile(this.pathInfo.workersPath),
     }
-    //  用户 ployfill
-    const customHeaderPathPart = path.resolve(this.pathInfo.inputDirPath, 'ployfill')
+    //  用户 polyfill
+    const customHeaderPathPart = path.resolve(this.pathInfo.inputDirPath, 'polyfill')
     const customPloyfillGlobMatch = path.resolve(customHeaderPathPart, './**/*.js')
     const customPloyfill: string[] = glob.globSync(customPloyfillGlobMatch)
     const customPloyfillInfo = customPloyfill.map(str => {
       return {fullPath: str, ployfillPath: path.relative(customHeaderPathPart, str)}
     })
-    //  内置 ployfill
+    //  内置 polyfill
     const urls = new URL(import.meta.url)
-    const headerPathPart = path.resolve(path.dirname(urls.pathname), 'ployfill')
+    const headerPathPart = path.resolve(path.dirname(urls.pathname), 'polyfill')
     const ployfillGlobMatch = path.resolve(headerPathPart, './**/*.js')
     let builtinPloyfill: string[] = glob.globSync(ployfillGlobMatch)
     const builtinPloyfillInfo = builtinPloyfill.map(str => {
@@ -465,7 +465,7 @@ export class DecompilationMicroApp {
     const vm = DecompilationMicroApp.createVM({
       sandbox: {
         define(name: string, func: string) {
-          /* 看看是否有 ployfill,  有的话直接使用注入 ployfill */
+          /* 看看是否有 polyfill,  有的话直接使用注入 polyfill */
           const foundPloyfill = _this.allPloyFill.find(item => {
             return name.endsWith(item.ployfillPath)
           })
