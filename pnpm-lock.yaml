@@ -6,7 +6,7 @@ settings:
 
 importers:
 
-  .:
+  .: 
     dependencies:
       '@biggerstar/deepmerge':
         specifier: ^1.0.3

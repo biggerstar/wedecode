@@ -21,3 +21,4 @@ wxapkg
 /pkg/
 test/js/
 OUTPUT
+.DS_Store
