@@ -41,7 +41,7 @@ program
       outputPath: argMap.out
     }
     clearScreen()
-    printLog(colors.bgRed(colors.yellow(`\n\t🔶  \t  ${colors.bold('wxapkg 反编译工具 | wedecode')}\t\t🔶\t\n`)), {
+    printLog(colors.bgRed(colors.yellow(`\n\t🔶  \t  ${colors.bold(`wxapkg 反编译工具 | wedecode (${packages.version})`)}\t\t🔶\t\n`)), {
       isStart: true,
       space1: '\n',
       space2: '\n',

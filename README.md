@@ -97,9 +97,6 @@
    A: 这可能是缺失分包，你需要把分包放在一起编译， 你可以在 app.config.json 或者 app.json 文件中查看你依赖的分包信息,    
       在编译产物中出现默认模板是因为小程序会检查依赖，为了保证在缺失部分分包的情况下正常运行而生成的默认模板  
 
-2. Q: Magic number is not correct!     
-   A: 如果遇到该错误则可能是你的包未解密，在微信3.8版本以下的 PC, MAC 包需要解密，所以你需要先使用项目中的解密工具 `decryption-tool/UnpackMiniApp.exe` 解密    
- 
 
  
 ### 免责声明

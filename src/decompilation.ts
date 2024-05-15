@@ -189,7 +189,13 @@ export class DecompilationMicroApp {
     let infoListLength = headerBuffer.readUInt32BE(5);
     // let dataLength = headerBuffer.readUInt32BE(9);
     let lastMark = headerBuffer.readUInt8(13);
-    if (firstMark !== 0xbe || lastMark !== 0xed) throw Error("Magic number is not correct!");
+    if (firstMark !== 0xbe || lastMark !== 0xed) {
+      console.log(` \n\u274C ${colors.red(
+        '这不是一个正确的小程序包,在微信3.8版本以下的 PC, MAC 包需要解密\n' +
+        '所以你需要尝试先使用项目中的解密工具 decryption-tool/UnpackMiniApp.exe 解密')}\n地址:  https://github.com/biggerstar/wedecode'`
+      )
+      process.exit(0)
+    }
 
     const buf = __APP_BUF__.subarray(14, infoListLength + 14)
     let fileCount = buf.readUInt32BE(0);
