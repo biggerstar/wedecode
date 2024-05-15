@@ -690,6 +690,20 @@ export class DecompilationMicroApp {
     printLog(` \u25B6 生成页面和组件构成必要的默认文件成功. \n`, {isStart: true})
   }
 
+  /**
+   * 生成小程序的项目配置
+   * */
+  public async genProjectConfigFiles() {
+    const projectPrivateConfigPath = this.pathInfo.outputResolve('project.private.config.json')
+    const projectPrivateConfigData = {
+      "setting": {
+        "es6": false,
+        "urlCheck": false
+      }
+    }
+    DecompilationMicroApp.saveFile(projectPrivateConfigPath, JSON.stringify(projectPrivateConfigData, null, 2))
+  }
+
   public async removeCache() {
     await sleep(500)
     let cont = 0
@@ -741,6 +755,7 @@ export class DecompilationMicroApp {
     await this.decompileWXML()
     await this.decompileWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行
     await this.generateDefaultFiles()
+    await this.genProjectConfigFiles()
     await this.removeCache()
     printLog(` ✅  ${colors.bold(colors.green('反编译成功!'))}  ${colors.gray(this.pathInfo.outputPath)}\n`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
