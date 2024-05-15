@@ -5,7 +5,16 @@ import colors from "picocolors";
 import path from "node:path";
 import {JSDOM} from "jsdom";
 import {deepmerge} from "@biggerstar/deepmerge";
-import {arrayDeduplication, commonDir, getPathInfo, jsBeautify, printLog, replaceExt, sleep} from "./common";
+import {
+  arrayDeduplication,
+  commonDir,
+  getPathInfo,
+  jsBeautify,
+  printLog,
+  removeVM2ExceptionLine,
+  replaceExt,
+  sleep
+} from "./common";
 import {glob} from "glob";
 import process from "node:process";
 import {tryDecompileWxml} from "./lib/decompileWxml";
@@ -517,7 +526,7 @@ export class DecompilationMicroApp {
             resultCode = jsBeautify(code);
           }
           if (resultCode.trim()) {
-            DecompilationMicroApp.saveFile(_this.pathInfo.outputResolve(name), resultCode)
+            DecompilationMicroApp.saveFile(_this.pathInfo.outputResolve(name), removeVM2ExceptionLine(resultCode))
             printLog(" Completed " + colors.bold(colors.gray(name)))
           }
         },

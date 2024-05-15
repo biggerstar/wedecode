@@ -171,3 +171,8 @@ export function checkExistsWithFilePath(path: string, opt: { throw?: boolean } =
   }
   return true
 }
+
+export function removeVM2ExceptionLine(code: string) {
+  const reg = /\s*[a-z]\x20?=\x20?VM2_INTERNAL_STATE_DO_NOT_USE_OR_PROGRAM_WILL_FAIL\.handleException\([a-z]\);?/g
+  return code.replace(reg, '')
+}
