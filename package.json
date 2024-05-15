@@ -1,6 +1,6 @@
 {
   "name": "wedecode",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {
@@ -12,11 +12,11 @@
     "link": "vite-run build -y && pnpm link --dir= ./",
     "unlink": "pnpm unlink",
     "release:npm": "vite-run build -y && npm publish",
-    "release:git": "git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
-    "test: cmd": "wedecode",
-    "dev:unpack:file": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/youxi/__APP__.wxapkg",
-    "dev:unpack:dir": "DEV=true  wedecode --overwrite=true -o OUTPUT pkg/mt",
-    "dev:unpack:childPack": "DEV=true  wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
+    "release:git": "vite-run build -y && git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
+    "test: cmd": "npx wedecode",
+    "dev:unpack:file": "DEV=true npx wedecode --overwrite=true -o OUTPUT pkg/youxi/__APP__.wxapkg",
+    "dev:unpack:dir": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/mt",
+    "dev:unpack:childPack": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
     "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
   },
   "repository": {
@@ -48,6 +48,7 @@
     "js-beautify": "^1.15.1",
     "jsdom": "^24.0.0",
     "picocolors": "^1.0.0",
+    "simple-update-notifier": "^2.0.0",
     "single-line-log": "^1.1.2",
     "vite-run": "^1.7.0",
     "vm2": "^3.9.19"

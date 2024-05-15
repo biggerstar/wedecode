@@ -6,9 +6,9 @@ import path from 'node:path';
 import fs from 'node:fs';
 import colors from 'picocolors'
 import {DecompilationMicroApp} from "../../decompilation";
-import {checkExistsWithFilePath, clearScreen, getPathInfo, printLog, sleep} from "../../common";
+import {checkExistsWithFilePath, clearScreen, printLog, sleep} from "../../common";
 import prompts from "../../inquirer";
-
+import updateNotifier from 'simple-update-notifier';
 
 /**
  * @param {String} inputPath   wxapkg包路径
@@ -47,7 +47,7 @@ program
       space2: '\n',
       nativeOnly: true,
     })
-
+    await updateNotifier({pkg: packages, alwaysRun: true})
     if (!hasArgs) Object.assign(config, await prompts.default())   // 接收输入的配置
     if (!checkExistsWithFilePath(config.inputPath, {throw: true})) return
     // 经过下面转换， 文件输出位置最终都会在改小程序包同级目录下的 __OUTPUT__ 文件夹中输出
