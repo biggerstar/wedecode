@@ -56,7 +56,7 @@ export function getPathInfo(dir: string, outputDir: string) {
 }
 
 export function jsBeautify(code: string) {
-  return JS.js_beautify(code)
+  return JS.js_beautify(code, {indent_size: 2})
 }
 
 /** 深度遍历 */

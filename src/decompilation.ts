@@ -7,7 +7,7 @@ import {JSDOM} from "jsdom";
 import vkbeautify from 'vkbeautify'
 import {deepmerge} from "@biggerstar/deepmerge";
 import {arrayDeduplication, commonDir, getPathInfo, jsBeautify, printLog, replaceExt, sleep} from "./common";
-import {glob} from "glob";
+import {glob, globSync} from "glob";
 import process from "node:process";
 import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
@@ -122,7 +122,7 @@ export class DecompilationMicroApp {
    * @param {string} filepath
    * @param {any} data
    * @param {Object} opt
-   * @param {boolean} opt.force 强制覆盖
+   * @param {boolean} opt.force 是否强制覆盖, 默认为 false
    * @param {boolean} opt.emptyInstead 如果文原始件为空则直接替代
    * */
   public static saveFile(filepath: string, data: any, opt: { force?: boolean, emptyInstead?: boolean } = {}): boolean {
@@ -566,7 +566,7 @@ export class DecompilationMicroApp {
       return jsBeautify(code)
     }
 
-    for (const wxsPath in decompilationWXS) {   // 处理输出 wxs 文件
+    for (const wxsPath in decompilationWXS) {   // 处理并保存 wxs 文件
       if (path.extname(wxsPath) !== '.wxs') continue
       const wxsFunc = decompilationWXS[wxsPath]
       const wxsOutputShortPath = wxsPath.replace('p_./', './').replace('m_./', './')
@@ -588,6 +588,16 @@ export class DecompilationMicroApp {
         }
       })
     }
+    for (const wxmlRelativePath in this.wxsRefInfo) {
+      const wxsInPageList = this.wxsRefInfo[wxmlRelativePath]
+      wxsInPageList.forEach(item => {
+        if (!item.templateList) return
+        const wxmlAbsolutePath = this.pathInfo.resolve(wxmlRelativePath)
+        const templateString = item.templateList.join('\n')
+        const wxmlCode = DecompilationMicroApp.readFile(wxmlAbsolutePath)
+        DecompilationMicroApp.saveFile(wxmlAbsolutePath, `${wxmlCode}\n${templateString}`, {force: true})
+      })
+    }
     printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
   }
 
@@ -597,7 +607,7 @@ export class DecompilationMicroApp {
     let xPool = []
     const xPoolReg = /var\s+x=\s*\[(.+)];\$?/g
     const regRes = xPoolReg.exec(code)
-    if (regRes[0].includes('var x=[') && regRes[0].includes('.wxml')) {
+    if (regRes && regRes[0].includes('var x=[') && regRes[0].includes('.wxml')) {
       xPool = [regRes[1]].toString().split(',').map(str => str.replaceAll("'", ''))
     }
     const vm = DecompilationMicroApp.createVM()
@@ -661,16 +671,16 @@ export class DecompilationMicroApp {
     for (let pagePath of allPageAndComp) {
       // /* json */
       let jsonPath = this.pathInfo.resolve(replaceExt(pagePath, ".json"))
-      const isComp = fs.existsSync(jsonPath)
-      if (!isComp) continue
+      // const isComp = fs.existsSync(jsonPath)
+      // if (!isComp) continue
       DecompilationMicroApp.saveFile(jsonPath, '{\n\n}');
       let jsName = replaceExt(pagePath, ".js")
       let jsPath = this.pathInfo.resolve(jsName)
-      DecompilationMicroApp.saveFile(jsPath, "// " + jsName + "\nPage({data: {}})");
+      DecompilationMicroApp.saveFile(jsPath, "Page({ data: {} })");
       /* wxml */
       let wxmlName = replaceExt(pagePath, ".wxml");
       let wxmlPath = this.pathInfo.resolve(wxmlName)
-      DecompilationMicroApp.saveFile(wxmlPath, "<!--" + wxmlName + "--><text>" + wxmlName + "</text>");
+      DecompilationMicroApp.saveFile(wxmlPath, `<text>${wxmlName}</text>`);
       /* js */
       /* wxss */
       // let cssName = replaceExt(pagePath, ".wxss")
@@ -729,7 +739,7 @@ export class DecompilationMicroApp {
     await this.decompileWXSS()
     await this.decompileWorker()
     await this.decompileWXML()
-    await this.decompileWXS()
+    await this.decompileWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行
     await this.generateDefaultFiles()
     await this.removeCache()
     printLog(` ✅  ${colors.bold(colors.green('反编译成功!'))}  ${colors.gray(this.pathInfo.outputPath)}\n`, {isEnd: true})
