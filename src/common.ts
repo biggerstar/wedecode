@@ -43,6 +43,9 @@ export function getPathInfo(dir: string, outputDir: string) {
     get pageFramePath() {
       return resolve(_packRootPath, 'page-frame.js')
     },
+    get pageFrameHtmlPath() {
+      return resolve(_packRootPath, 'page-frame.html')
+    },
     get appJsPath() {
       return resolve(_packRootPath, 'app.js')
     },
@@ -141,7 +144,7 @@ export function commonDir(pathA: string, pathB: string) {
 export function replaceExt(name: string, ext = "") {
   const lastIndex = name.lastIndexOf(".")
   const firstIndex = name.startsWith('.') ? 0 : name.indexOf(".")
-  return firstIndex === lastIndex ? `${name}${ext}` : name.slice(0, name.lastIndexOf(".")) + ext;
+  return firstIndex === lastIndex && name.split('.').length > 2 ? `${name}${ext}` : name.slice(0, name.lastIndexOf(".")) + ext;
 }
 
 export function sleep(time: number) {

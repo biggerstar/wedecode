@@ -11,7 +11,7 @@ import {glob} from "glob";
 import process from "node:process";
 import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
-import {a} from "vite/dist/node/types.d-aGj9QkWt";
+import * as cheerio from "cheerio";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS
@@ -32,6 +32,7 @@ export class DecompilationMicroApp {
     appWxss: string,
     workers: string,
     pageFrame: string,
+    pageFrameHtml: string,
     appService: string,
   }
   public allRefComponentList: string[] = []
@@ -250,12 +251,21 @@ export class DecompilationMicroApp {
     printLog(` \u25B6 当前输出目录:  ${colors.blue(this.pathInfo.outputPath)}\n`, {
       isEnd: true,
     });
+
+    let pageFrameHtmlCode = DecompilationMicroApp.readFile(this.pathInfo.pageFrameHtmlPath)
+    if (pageFrameHtmlCode) {
+      const $ = cheerio.load(pageFrameHtmlCode);
+      pageFrameHtmlCode = $('script').text()
+    }
+    const appServiceCode = DecompilationMicroApp.readFile(this.pathInfo.appServicePath)
+    this._testCodeInfo.appService.code = appServiceCode
     this.codeInfo = {
       appConfigJson: DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath),
       appWxss: DecompilationMicroApp.readFile(this.pathInfo.appWxssPath),
-      appService: DecompilationMicroApp.readFile(this.pathInfo.appServicePath),
+      appService: appServiceCode,
       pageFrame: DecompilationMicroApp.readFile(this.pathInfo.pageFramePath),
       workers: DecompilationMicroApp.readFile(this.pathInfo.workersPath),
+      pageFrameHtml: pageFrameHtmlCode,
     }
     //  用户 polyfill
     const customHeaderPathPart = path.resolve(this.pathInfo.inputDirPath, 'polyfill')
@@ -281,8 +291,11 @@ export class DecompilationMicroApp {
     }
     // console.log({...this.pathInfo})
     console.log(loadInfo)
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame
-    if (!code) return
+    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    if (!code) {
+      console.log('  没有找到包特征文件')
+      return
+    }
     const vm = DecompilationMicroApp.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global;`)
     code = code.replace(
@@ -327,7 +340,7 @@ export class DecompilationMicroApp {
         })
         .flat(2))
 
-      this.allSubPackagePages = appConfig.subPackages
+      this.allSubPackagePages = (appConfig.subPackages || [])
         .map((subPackage: any) => appConfig.pages.filter((pagePath: string) => pagePath.startsWith(subPackage.root)))
         .flat(2)
     }
@@ -341,7 +354,7 @@ export class DecompilationMicroApp {
     await sleep(200)
     const appConfigString = this.codeInfo.appConfigJson
     const appConfig: Record<any, any> = JSON.parse(appConfigString)
-    appConfig.window = appConfig.global.window || {}
+    Object.assign(appConfig, appConfig.global)
     delete appConfig.global
     delete appConfig.page
     appConfig.plugins = {}
@@ -425,10 +438,29 @@ export class DecompilationMicroApp {
    * */
   public async decompileJSON() {
     if (this.packType !== 'main') return
-    const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)
+    const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)   // 黑名单模式: 直接操作 app-config.json 可以适配官方未来可能增加的配置字段
+    let __wxAppCode__ = {}
+    const vm = DecompilationMicroApp.createVM({
+      sandbox: {
+        define: () => void 0,
+        require: () => void 0,
+        __wxAppCode__: __wxAppCode__
+      }
+    })
+    vm.run(this.codeInfo.appService)
+    for (const filePath in __wxAppCode__) {
+      if (path.extname(filePath) !== '.json') continue
+      let htmlName = replaceExt(filePath, ".html")
+      if (typeof __wxAppCode__[filePath] === 'object') {
+        appConfig.page[htmlName] = appConfig.page[htmlName] || {}
+        if (!appConfig.page[htmlName].window) appConfig.page[htmlName].window = {}
+        deepmerge(appConfig.page[htmlName].window, __wxAppCode__[filePath], {safe: false})
+      }
+    }
     for (let pageHtmlPath in appConfig.page) {
+      // console.log(pageHtmlPath)
       const pageJsonConfig = appConfig.page[pageHtmlPath]
-      const pageJsonPath = pageHtmlPath.replace('.html', '.json')
+      const pageJsonPath = replaceExt(pageHtmlPath, ".json")
       const realJsonConfig: Record<any, any> = pageJsonConfig.window || {}
       realJsonConfig.backgroundColorTop = realJsonConfig.backgroundTopColor
       const deleteKeys = [
@@ -451,9 +483,9 @@ export class DecompilationMicroApp {
       ]
       deleteKeys.forEach(key => delete realJsonConfig[key])
       if (realJsonConfig.rendererOptions?.['skyline']) {
-        delete realJsonConfig.rendererOptions?.['skyline']['disableABTest']
-        delete realJsonConfig.rendererOptions?.['skyline']['sdkVersionBegin']
-        delete realJsonConfig.rendererOptions?.['skyline']['sdkVersionEnd']
+        delete realJsonConfig.rendererOptions['skyline']['disableABTest']
+        delete realJsonConfig.rendererOptions['skyline']['sdkVersionBegin']
+        delete realJsonConfig.rendererOptions['skyline']['sdkVersionEnd']
       }
       DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(pageJsonPath), JSON.stringify(realJsonConfig, null, 2))
     }
@@ -501,7 +533,7 @@ export class DecompilationMicroApp {
   }
 
   public async decompileWXSS() {
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame
+    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code.trim()) return
     const vm = DecompilationMicroApp.createVM()
     vm.run(code)
@@ -560,14 +592,20 @@ export class DecompilationMicroApp {
   }
 
   public async decompileWXML() {
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame
+    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code) return
+    let xPool = []
+    const xPoolReg = /var\s+x=\s*\[(.+)];\$?/g
+    const regRes = xPoolReg.exec(code)
+    if (regRes[0].includes('var x=[') && regRes[0].includes('.wxml')) {
+      xPool = [regRes[1]].toString().split(',').map(str => str.replaceAll("'", ''))
+    }
     const vm = DecompilationMicroApp.createVM()
     vm.run(code)
     getZ(code, (z: Record<string, any[]>) => {
       const {entrys, defines} = this.DecompilationModules
       for (let wxmlPath in entrys) {
-        const result = tryDecompileWxml(entrys[wxmlPath].f.toString(), z, defines[wxmlPath])
+        const result = tryDecompileWxml(entrys[wxmlPath].f.toString(), z, defines[wxmlPath], xPool)
         if (result) {
           DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(wxmlPath), result)
           printLog(` Completed  ${colors.bold(colors.gray(wxmlPath))}`)
@@ -613,10 +651,19 @@ export class DecompilationMicroApp {
    * 生成组件构成必要素的默认 json wxs, wxml, wxss 文件
    * */
   public async generateDefaultFiles() {
-    const allPageAbsolutePathList = glob.globSync(`${this.pathInfo.packRootPath}/**/*.html`)
+    const allPageAbsolutePathList = glob.globSync(`${this.pathInfo.packRootPath}/**/*.html`).filter((str) => {
+      return ![
+        'page-frame.html'
+      ].includes(path.basename(str))
+    })
     const allPage = allPageAbsolutePathList.map(str => str.replace(this.pathInfo.packRootPath, '.'))
     const allPageAndComp = allPage.concat(this.allRefComponentList).concat(this.allSubPackagePages)
     for (let pagePath of allPageAndComp) {
+      // /* json */
+      let jsonPath = this.pathInfo.resolve(replaceExt(pagePath, ".json"))
+      const isComp = fs.existsSync(jsonPath)
+      if (!isComp) continue
+      DecompilationMicroApp.saveFile(jsonPath, '{\n\n}');
       let jsName = replaceExt(pagePath, ".js")
       let jsPath = this.pathInfo.resolve(jsName)
       DecompilationMicroApp.saveFile(jsPath, "// " + jsName + "\nPage({data: {}})");
@@ -624,9 +671,6 @@ export class DecompilationMicroApp {
       let wxmlName = replaceExt(pagePath, ".wxml");
       let wxmlPath = this.pathInfo.resolve(wxmlName)
       DecompilationMicroApp.saveFile(wxmlPath, "<!--" + wxmlName + "--><text>" + wxmlName + "</text>");
-      // /* json */
-      let jsonPath = this.pathInfo.resolve(replaceExt(pagePath, ".json"))
-      DecompilationMicroApp.saveFile(jsonPath, '{\n\n}');
       /* js */
       /* wxss */
       // let cssName = replaceExt(pagePath, ".wxss")
@@ -643,6 +687,7 @@ export class DecompilationMicroApp {
     const removeList = [
       // 'app-config.json',
       'app-wxss.js',
+      'page-frame.html',
       'app-service.js',
       'appservice.app.js',
       'page-frame.js',

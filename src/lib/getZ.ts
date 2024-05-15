@@ -228,12 +228,13 @@ function restoreSingle(ops: any, withScope = false) {
 function catchZ(code: string, cb: Function) {
   const reg = /function\s+gz\$gwx(\w+)\(\)\{(?:.|\n)*?;return\s+__WXML_GLOBAL__\.ops_cached\.\$gwx[\w\n]+}/g
   const allGwxFunctionMatch = code.match(reg)
+  // console.log(allGwxFunctionMatch)
   const allFunctionMap = {}
   const z = {}
   const vm = DecompilationMicroApp.createVM({
     sandbox: {__WXML_GLOBAL__: {ops_cached: {}}}
   })
-  if (allGwxFunctionMatch){
+  if (allGwxFunctionMatch) {
     allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
       const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
       const found = funcReg.exec(funcString)

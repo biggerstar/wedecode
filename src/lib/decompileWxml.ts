@@ -3,12 +3,8 @@
  * 本段代码引用自 https://github.com/qwerty472123/wxappUnpacker ,并做了一定修改优化
  * */
 
-import path from "node:path";
 import esprima from "esprima";
 import escodegen from "escodegen";
-import colors from "picocolors";
-import {printLog} from "../common";
-import {DecompilationMicroApp} from "../decompilation";
 
 function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<any, any>, fakePool = {}, zMulName = "0") {
   function anaRecursion(core: any, fakePool = {}) {
@@ -331,11 +327,11 @@ function elemToString(elem: Record<any, any>, dep: any) {
   return trimMerge(rets);
 }
 
-function getDecompiledWxml(state: any, code: string, z: {}, rDs: any) {
+function getDecompiledWxml(state: any, code: string, z: {}, rDs: any, xPool: string[]) {
   let rName = code.slice(code.lastIndexOf("return") + 6).replace(/[\;\}]/g, "").trim();
   code = code.slice(code.indexOf("\n"), code.lastIndexOf("return")).trim();
   let r = {son: []};
-  analyze(esprima.parseScript(code).body, z, {[rName]: r}, {[rName]: r}, {[rName]: r});
+  analyze(esprima.parseScript(code).body, z, {[rName]: r}, xPool, {[rName]: r});
   let ans = [];
   for (let elem of r.son) ans.push(elemToString(elem, 0));
   let result = [ans.join("")];
@@ -358,9 +354,9 @@ function getDecompiledWxml(state: any, code: string, z: {}, rDs: any) {
   return result.join("")
 }
 
-export function tryDecompileWxml(code: string, z: Record<string, any[]>, rDs: any): string {
+export function tryDecompileWxml(code: string, z: Record<string, any[]>, define: any, xPool: string[]): string {
   try {
-    return getDecompiledWxml([null], code, z, rDs)
+    return getDecompiledWxml([null], code, z, define, xPool)
   } catch (e) {
     return ''
   }
