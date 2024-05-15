@@ -545,8 +545,9 @@ export class DecompilationMicroApp {
       const attr = styleEl.attributes.getNamedItem('wxss:path')
       if (!attr) return
       const outPath = attr.value
-      const cssText = styleEl.innerHTML
+      let cssText = styleEl.innerHTML
       if (cssText && outPath && outPath !== 'undefined') {
+        cssText = cssText.replace(/body\s*\{/g, 'page{')  // 不太严谨， 后面使用 StyleSheet 进行处理
         DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(outPath), cssbeautify(cssText))
         printLog(" Completed " + colors.bold(colors.gray(outPath)))
       }
