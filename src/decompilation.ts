@@ -4,14 +4,14 @@ import fs from "node:fs";
 import colors from "picocolors";
 import path from "node:path";
 import {JSDOM} from "jsdom";
-import vkbeautify from 'vkbeautify'
 import {deepmerge} from "@biggerstar/deepmerge";
 import {arrayDeduplication, commonDir, getPathInfo, jsBeautify, printLog, replaceExt, sleep} from "./common";
-import {glob, globSync} from "glob";
+import {glob} from "glob";
 import process from "node:process";
 import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
 import * as cheerio from "cheerio";
+import cssbeautify from "cssbeautify";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS
@@ -547,7 +547,7 @@ export class DecompilationMicroApp {
       const outPath = attr.value
       const cssText = styleEl.innerHTML
       if (cssText && outPath && outPath !== 'undefined') {
-        DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(outPath), vkbeautify.css(cssText))
+        DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(outPath), cssbeautify(cssText))
         printLog(" Completed " + colors.bold(colors.gray(outPath)))
       }
 

@@ -34,11 +34,13 @@
   "homepage": "https://github.com/biggerstar/wedecode#readme",
   "dependencies": {
     "@biggerstar/deepmerge": "^1.0.3",
+    "@types/cssbeautify": "^0.3.5",
     "@types/inquirer": "^9.0.7",
     "@types/js-beautify": "^1.14.3",
     "@types/single-line-log": "^1.1.2",
     "cheerio": "1.0.0-rc.12",
     "commander": "^12.0.0",
+    "cssbeautify": "^0.3.1",
     "escodegen": "^1.14.3",
     "esprima": "^4.0.1",
     "glob": "^10.3.12",
@@ -48,7 +50,6 @@
     "picocolors": "^1.0.0",
     "single-line-log": "^1.1.2",
     "vite-run": "^1.7.0",
-    "vkbeautify": "^0.99.3",
     "vm2": "^3.9.19"
   },
   "devDependencies": {

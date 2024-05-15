@@ -11,6 +11,9 @@ importers:
       '@biggerstar/deepmerge':
         specifier: ^1.0.3
         version: 1.0.3
+      '@types/cssbeautify':
+        specifier: ^0.3.5
+        version: 0.3.5
       '@types/inquirer':
         specifier: ^9.0.7
         version: 9.0.7
@@ -26,6 +29,9 @@ importers:
       commander:
         specifier: ^12.0.0
         version: 12.0.0
+      cssbeautify:
+        specifier: ^0.3.1
+        version: 0.3.1
       escodegen:
         specifier: ^1.14.3
         version: 1.14.3
@@ -53,9 +59,6 @@ importers:
       vite-run:
         specifier: ^1.7.0
         version: 1.7.0
-      vkbeautify:
-        specifier: ^0.99.3
-        version: 0.99.3
       vm2:
         specifier: ^3.9.19
         version: 3.9.19
@@ -348,6 +351,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@types/cssbeautify@0.3.5':
+    resolution: {integrity: sha512-bkxuJdUu7Liw14EouI8IFNvJXvd5IioAZdDvlCFBXv+Sel8uPK9rcxfvOchQKqw2AtppxRvcYaWmimi0t0Yuow==}
+
   '@types/escodegen@0.0.10':
     resolution: {integrity: sha512-IVvcNLEFbiL17qiGRGzyfx/u9K6lA5w6wcQSIgv2h4JG3ZAFIY1Be9ITTSPuARIxRpzW54s8OvcF6PdonBbDzg==}
 
@@ -547,6 +553,10 @@ packages:
   css-what@6.1.0:
     resolution: {integrity: sha512-HTUrgRJ7r4dsZKU6GjmpfRK1O76h97Z8MfS1G0FozR+oF2kG6Vfe8JE6zwrkbxigziPHinCJ+gCPjA9EaBDtRw==}
     engines: {node: '>= 6'}
+
+  cssbeautify@0.3.1:
+    resolution: {integrity: sha512-ljnSOCOiMbklF+dwPbpooyB78foId02vUrTDogWzu6ca2DCNB7Kc/BHEGBnYOlUYtwXvSW0mWTwaiO2pwFIoRg==}
+    hasBin: true
 
   cssstyle@4.0.1:
     resolution: {integrity: sha512-8ZYiJ3A/3OkDd093CBT/0UKDWry7ak4BdPTFP2+QEP7cmhouyq/Up709ASSj2cK02BbZiMgk7kYjZNS4QP5qrQ==}
@@ -1195,9 +1205,6 @@ packages:
       terser:
         optional: true
 
-  vkbeautify@0.99.3:
-    resolution: {integrity: sha512-2ozZEFfmVvQcHWoHLNuiKlUfDKlhh4KGsy54U0UrlLMR1SO+XKAIDqBxtBwHgNrekurlJwE8A9K6L49T78ZQ9Q==}
-
   vm2@3.9.19:
     resolution: {integrity: sha512-J637XF0DHDMV57R6JyVsTak7nIL8gy5KH4r1HiwWLf/4GBbb5MKL5y7LpmF4A8E2nR6XmzpmMFQ7V7ppPTmUQg==}
     engines: {node: '>=6.0'}
@@ -1425,6 +1432,8 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.17.2':
     optional: true
 
+  '@types/cssbeautify@0.3.5': {}
+
   '@types/escodegen@0.0.10': {}
 
   '@types/esprima@4.0.6':
@@ -1621,6 +1630,8 @@ snapshots:
       nth-check: 2.1.1
 
   css-what@6.1.0: {}
+
+  cssbeautify@0.3.1: {}
 
   cssstyle@4.0.1:
     dependencies:
@@ -2316,8 +2327,6 @@ snapshots:
     optionalDependencies:
       '@types/node': 20.12.10
       fsevents: 2.3.3
-
-  vkbeautify@0.99.3: {}
 
   vm2@3.9.19:
     dependencies:
