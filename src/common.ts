@@ -142,9 +142,8 @@ export function commonDir(pathA: string, pathB: string) {
 }
 
 export function replaceExt(name: string, ext = "") {
-  const lastIndex = name.lastIndexOf(".")
-  const firstIndex = name.startsWith('.') ? 0 : name.indexOf(".")
-  return firstIndex === lastIndex && name.split('.').length > 2 ? `${name}${ext}` : name.slice(0, name.lastIndexOf(".")) + ext;
+  const hasSuffix = name.lastIndexOf(".") > 2   // x.x
+  return hasSuffix ? name.slice(0, name.lastIndexOf(".")) + ext : `${name}${ext}`
 }
 
 export function sleep(time: number) {

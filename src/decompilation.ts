@@ -686,9 +686,8 @@ export class DecompilationMicroApp {
     const allPageAndComp = allPage.concat(this.allRefComponentList).concat(this.allSubPackagePages)
     for (let pagePath of allPageAndComp) {
       // /* json */
+      // console.log(replaceExt(pagePath, ".json"), pagePath)
       let jsonPath = this.pathInfo.resolve(replaceExt(pagePath, ".json"))
-      // const isComp = fs.existsSync(jsonPath)
-      // if (!isComp) continue
       DecompilationMicroApp.saveFile(jsonPath, '{\n\n}');
       let jsName = replaceExt(pagePath, ".js")
       let jsPath = this.pathInfo.resolve(jsName)

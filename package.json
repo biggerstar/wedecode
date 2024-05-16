@@ -1,23 +1,23 @@
 {
   "name": "wedecode",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {
     "wedecode": "./dist/wedecode.js"
   },
   "scripts": {
-    "dev": "vite-run dev -y",
+    "dev": "npx vite-run dev -y",
     "start": "node dist/wedecode.js",
-    "build": "vite-run build",
-    "link": "vite-run build -y && pnpm link --dir= ./",
+    "build": "npx vite-run build",
+    "link": "npx vite-run build -y && pnpm link --dir= ./",
     "unlink": "pnpm unlink",
     "release:npm": "vite-run build -y && npm publish",
     "release:git": "vite-run build -y && git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
     "test: cmd": "npx wedecode",
     "dev:unpack:file": "DEV=true npx wedecode --overwrite=true -o OUTPUT pkg/youxi/__APP__.wxapkg",
-    "dev:unpack:dir": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/mt",
-    "dev:unpack:childPack": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
+    "dev:unpack:dir": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/dianping",
+    "dev:unpack:subPack": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
     "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
   },
   "repository": {
@@ -44,21 +44,21 @@
     "cssbeautify": "^0.3.1",
     "escodegen": "^1.14.3",
     "esprima": "^4.0.1",
-    "glob": "^10.3.12",
-    "inquirer": "^9.2.20",
+    "glob": "^10.3.15",
+    "inquirer": "^9.2.21",
     "js-beautify": "^1.15.1",
     "jsdom": "^24.0.0",
-    "picocolors": "^1.0.0",
+    "picocolors": "^1.0.1",
     "simple-update-notifier": "^2.0.0",
     "single-line-log": "^1.1.2",
-    "vite-run": "^1.7.0",
+    "vite-run": "^1.7.1",
     "vm2": "^3.9.19"
   },
   "devDependencies": {
     "@types/escodegen": "^0.0.10",
     "@types/esprima": "^4.0.6",
     "@types/jsdom": "^21.1.6",
-    "@types/node": "^20.12.8",
+    "@types/node": "^20.12.12",
     "@types/vkbeautify": "^0.99.4",
     "rollup-plugin-copy": "^3.5.0",
     "vite": "^5.2.11"
