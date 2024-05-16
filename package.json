@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite-run dev -y",
+    "start": "node dist/wedecode.js",
     "build": "vite-run build",
     "link": "vite-run build -y && pnpm link --dir= ./",
     "unlink": "pnpm unlink",

@@ -52,10 +52,8 @@
 
 ```shell
   git clone https://github.com/biggerstar/wedecode
-  npm i pnpm
-  pnpm i
-  npm run link
-  wedecode
+  npm i  # 如果 npm 安装很慢， 可以使用右侧命令换国内的淘宝源  npm config set registry https://registry.npmmirror.com
+  npm run start
 ```
 
 ### 命令参数
