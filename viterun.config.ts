@@ -25,7 +25,7 @@ const external = [
   'jsdom',
   'glob',
   'inquirer',
-  'simple-update-notifier',
+  'update-check',
 ]
 
 export default defineViteRunConfig({

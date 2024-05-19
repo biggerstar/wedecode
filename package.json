@@ -1,14 +1,14 @@
 {
   "name": "wedecode",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {
     "wedecode": "./dist/wedecode.js"
   },
   "scripts": {
+    "start": "vite-run build -y && node dist/wedecode.js",
     "dev": "npx vite-run dev -y",
-    "start": "node dist/wedecode.js",
     "build": "npx vite-run build",
     "link": "npx vite-run build -y && pnpm link --dir= ./",
     "unlink": "pnpm unlink",
@@ -18,7 +18,7 @@
     "dev:unpack:file": "DEV=true npx wedecode --overwrite=true -o OUTPUT pkg/youxi/__APP__.wxapkg",
     "dev:unpack:dir": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/dianping",
     "dev:unpack:subPack": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
-    "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
+    "preview:unpack": "npx wedecode pkg/old/__old__.wxapkg"
   },
   "repository": {
     "type": "git",
@@ -35,10 +35,6 @@
   "homepage": "https://github.com/biggerstar/wedecode#readme",
   "dependencies": {
     "@biggerstar/deepmerge": "^1.0.3",
-    "@types/cssbeautify": "^0.3.5",
-    "@types/inquirer": "^9.0.7",
-    "@types/js-beautify": "^1.14.3",
-    "@types/single-line-log": "^1.1.2",
     "cheerio": "1.0.0-rc.12",
     "commander": "^12.0.0",
     "cssbeautify": "^0.3.1",
@@ -48,17 +44,23 @@
     "inquirer": "^9.2.21",
     "js-beautify": "^1.15.1",
     "jsdom": "^24.0.0",
+    "npx": "^10.2.2",
     "picocolors": "^1.0.1",
     "simple-update-notifier": "^2.0.0",
     "single-line-log": "^1.1.2",
+    "update-check": "^1.5.4",
     "vite-run": "^1.7.1",
     "vm2": "^3.9.19"
   },
   "devDependencies": {
+    "@types/cssbeautify": "^0.3.5",
     "@types/escodegen": "^0.0.10",
     "@types/esprima": "^4.0.6",
+    "@types/inquirer": "^9.0.7",
+    "@types/js-beautify": "^1.14.3",
     "@types/jsdom": "^21.1.6",
     "@types/node": "^20.12.12",
+    "@types/single-line-log": "^1.1.2",
     "@types/vkbeautify": "^0.99.4",
     "rollup-plugin-copy": "^3.5.0",
     "vite": "^5.2.11"
