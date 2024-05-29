@@ -16,7 +16,7 @@
     "release:git": "vite-run build -y && git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
     "test: cmd": "npx wedecode",
     "dev:unpack:file": "DEV=true npx wedecode --overwrite=true -o OUTPUT pkg/youxi/__APP__.wxapkg",
-    "dev:unpack:dir": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/dianping",
+    "dev:unpack:dir": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/paopao-mate",
     "dev:unpack:subPack": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
     "preview:unpack": "npx wedecode pkg/old/__old__.wxapkg"
   },

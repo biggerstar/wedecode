@@ -331,14 +331,16 @@ export class DecompilationMicroApp {
       if (!this.wxsRefInfo[filepath]) this.wxsRefInfo[filepath] = []
       for (const moduleName in wxmlRefWxsMap) {
         const vSrc = wxmlRefWxsMap[moduleName]()
-        const src: string = vSrc.replace('p_', '').replace('m_', '')
-        this.wxsRefInfo[filepath].push({
-          src: src,
-          fileSrc: src.includes(':') ? src.split(':')[0] : src,
-          vSrc,
-          moduleName,
-          templateList: []
-        })
+        if (typeof vSrc === 'string') {
+          const src: string = vSrc.replace('p_', '').replace('m_', '')
+          this.wxsRefInfo[filepath].push({
+            src: src,
+            fileSrc: src.includes(':') ? src.split(':')[0] : src,
+            vSrc,
+            moduleName,
+            templateList: []
+          })
+        }
       }
     }
 
