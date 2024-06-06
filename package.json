@@ -15,7 +15,7 @@
     "release:npm": "vite-run build -y && npm publish",
     "release:git": "vite-run build -y && git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
     "test: cmd": "npx wedecode",
-    "dev:unpack:file": "DEV=true npx wedecode --overwrite=true -o OUTPUT pkg/error/_pagesA_.wxapkg",
+    "dev:unpack:file": "DEV=true npx wedecode --overwrite=true -o OUTPUT pkg/error/__APP__.wxapkg",
     "dev:unpack:file:nooverwrite": "DEV=true npx wedecode -o OUTPUT pkg/error/_pagesA_.wxapkg",
     "dev:unpack:dir": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/error",
     "dev:unpack:subPack": "DEV=true  npx wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",

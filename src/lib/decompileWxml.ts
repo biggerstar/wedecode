@@ -16,6 +16,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
   }
 
   function pushSon(pname: string, son: any) {
+    // console.log(pname, son)
     if (fakePool[pname]) fakePool[pname].son.push(son);
     else namePool[pname].son.push(son);
   }
@@ -34,7 +35,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
               case "_rz":
                 namePool[f.arguments[1].name].v[f.arguments[2].value] = z[zMulName][f.arguments[3].value];
                 break;
-              case "_":
+              case "_":   // 标签属性
                 pushSon(f.arguments[0].name, namePool[f.arguments[1].name]);
                 break;
               case "_2": {

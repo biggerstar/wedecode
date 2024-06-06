@@ -439,6 +439,10 @@ export class DecompilationMicroApp {
       delete appConfig.window['navigationBarTitleText']
       delete appConfig.window['navigationBarBackgroundColor']
     }
+
+    const entrys = this.DecompilationModules.entrys || {}
+    const entryList = Object.keys(entrys).map(str => replaceExt(str.replace('./', ''), ''))
+    appConfig.pages = arrayDeduplication(appConfig.pages.concat(entryList))
     if (appConfig.subPackages) {
       let subPackages = [];
       appConfig.subPackages.forEach((subPackage: Record<any, any>) => {
@@ -823,7 +827,6 @@ export class DecompilationMicroApp {
     /* 开始编译 */
     await this.init()
     await this.decompileAppJSON()
-    return
     await this.decompileJSON()
     await this.decompileJS()
     await this.decompileWXSS()

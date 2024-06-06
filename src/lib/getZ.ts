@@ -4,12 +4,21 @@ function restoreSingle(ops: any, withScope = false) {
   if (typeof ops == "undefined") return "";
 
   function scope(value: string) {
-    if (value.startsWith('{') && value.endsWith('}')) return withScope ? value : "{" + value + "}";
+    if (value.startsWith('{') && value.endsWith('}')) return withScope ? value : "{{(" + value + ")}}";
     return withScope ? value : "{{" + value + "}}";
   }
 
   function enBrace(value: string, type = '{') {
-    if (value.startsWith('{') || value.startsWith('[') || value.startsWith('(') || value.endsWith('}') || value.endsWith(']') || value.endsWith(')')) value = ' ' + value + ' ';
+    if (value.startsWith('{') ||
+      value.startsWith('[') ||
+      value.startsWith('(') ||
+      value.endsWith('}') ||
+      value.endsWith(']') ||
+      value.endsWith(')')
+    ) {
+      value = ' ' + value + ' '
+    }
+    // console.log(type, value)
     switch (type) {
       case '{':
         return '{' + value + '}';
@@ -57,7 +66,8 @@ function restoreSingle(ops: any, withScope = false) {
       case 3://string
         return ops[1];//may cause problems if wx use it to be string
       case 1://direct value
-        return scope(jsoToWxOn(ops[1]));
+        const val = jsoToWxOn(ops[1])
+        return scope(val);
       case 11://values list, According to var a = 11;
         let ans = "";
         ops.shift();
@@ -120,7 +130,7 @@ function restoreSingle(ops: any, withScope = false) {
             if (ops.length !== 3) {
               ans = op[1] + getOp(1);
               break;
-            }//shoud not add more in there![fall through]
+            }//should not add more in there![fall through] 
           default:
             ans = getOp(1) + op[1] + getOp(2);
         }
@@ -221,6 +231,7 @@ function restoreSingle(ops: any, withScope = false) {
       default:
         ans = enBrace("__unkownSpecific:" + jsoToWxOn(ops), '{');
     }
+    // console.log(ans)
     return scope(<string>ans);
   }
 }
