@@ -644,10 +644,24 @@ export class DecompilationMicroApp {
     const decompilationWXS = this.DecompilationWXS
     const funcHeader = 'nv_module={nv_exports:{}};';
     const funcEnd = 'return nv_module.nv_exports;}';
+    const matchReturnReg = /return\s*\(\{(.|\r|\t|\n)*?\}\)/
 
     function functionToWXS(wxsFunc: Function) {
       let code = wxsFunc.toString()
       code = code.slice(code.indexOf(funcHeader) + funcHeader.length, code.lastIndexOf(funcEnd)).replaceAll('nv_', '')
+      const matchInfo = matchReturnReg.exec(code)
+      const matchList = []
+      if (matchInfo) {
+        matchInfo.forEach(str => str.startsWith('return') && str.endsWith('})') && matchList.push(str))
+      }
+      matchList.forEach(returnStr => {
+        let newReturnString: string = ''
+        let temp = returnStr.replace('return', '').trim()
+        if (temp.startsWith('({') && temp.endsWith('})')) {
+          newReturnString = `return {${temp.substring(2, temp.length - 2)}}`
+          code = code.replace(returnStr, newReturnString)
+        }
+      })
       return jsBeautify(code)
     }
 
