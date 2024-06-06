@@ -299,10 +299,18 @@ export class DecompilationMicroApp {
    * 为分包注入主包的环境代码
    * */
   public injectMainPackCode(vm: VM, env: Record<any, any> = {}) {
+    if (this.packType === 'main') return
     let baseEnvCode1 = this.rootCodeInfo.appWxss || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
     let baseEnvCode2 = this.rootCodeInfo.appService || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
-    if (baseEnvCode1) vm.run(baseEnvCode1)
-    if (baseEnvCode2) vm.run(baseEnvCode2)
+    try {
+      if (baseEnvCode1) vm.run(baseEnvCode1)
+    } catch (e) {
+    }
+    try {
+      if (baseEnvCode2) vm.run(baseEnvCode2)
+    } catch (e) {
+
+    }
     vm.sandbox.$gwx = vm.sandbox.$gwx || (() => void 0)
     // if (!vm.sandbox.$gwx) {
     //   vm.sandbox.$gwx = (() => void 0)
@@ -364,7 +372,7 @@ export class DecompilationMicroApp {
       'return function(){ if (window.isHookReady){ return keepPath }; if(!nnm[n])'
     )
     code = code + ';window.isHookReady = true'
-    if (this.packType !== 'main') this.injectMainPackCode(vm)
+    this.injectMainPackCode(vm)
     vm.run(code)
 
     this._testCodeInfo["appWxss"].code = code
@@ -601,7 +609,7 @@ export class DecompilationMicroApp {
       }
     })
     if (this.codeInfo.appService) {
-      if (this.packType !== 'main') this.injectMainPackCode(vm)
+      this.injectMainPackCode(vm)
       vm.run(this.codeInfo.appService)
       printLog(` \u25B6 反编译所有 js 文件成功. \n`, {isStart: true})
     }
@@ -611,7 +619,7 @@ export class DecompilationMicroApp {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code.trim()) return
     const vm = DecompilationMicroApp.createVM()
-    if (this.packType !== 'main') this.injectMainPackCode(vm)
+    this.injectMainPackCode(vm)
     vm.run(code)
     const __wxAppCode__ = vm.sandbox['__wxAppCode__']
     if (!__wxAppCode__) return
@@ -660,7 +668,7 @@ export class DecompilationMicroApp {
       wxsInPageList.forEach(item => {
         let relativePath = path.relative(this.pathInfo.outputResolve(referencerOwnPath, '../'), this.pathInfo.outputResolve(item.fileSrc))
         if (item.src.includes(":")) {
-          item.templateList.push(`<wxs module="${item.moduleName}>"\n${functionToWXS(shortDecompilationWXS[item.src])}\n</wxs>`);
+          item.templateList.push(`<wxs module="${item.moduleName}">\n${functionToWXS(shortDecompilationWXS[item.src])}\n</wxs>`);
         } else {
           item.templateList.push(`<wxs module="${item.moduleName}" src="${relativePath}"/>`);
         }
@@ -835,7 +843,7 @@ export class DecompilationMicroApp {
     await this.decompileWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行
     await this.generateDefaultFiles()
     await this.genProjectConfigFiles()
-    // await this.removeCache()
+    await this.removeCache()
     printLog(` ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译成功!'))}  ${colors.gray(this.pathInfo.outputPath)}\n`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
     if (process.env.DEV) {

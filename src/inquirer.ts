@@ -1,5 +1,4 @@
 import inquirer from "inquirer";
-import fs from 'node:fs'
 import colors from "picocolors";
 import path from "node:path";
 import {checkExistsWithFilePath} from "./common";
