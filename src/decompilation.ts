@@ -563,6 +563,7 @@ export class DecompilationMicroApp {
         delete realJsonConfig.rendererOptions['skyline']['sdkVersionBegin']
         delete realJsonConfig.rendererOptions['skyline']['sdkVersionEnd']
       }
+      realJsonConfig.component = true
       let realJsonConfigString = JSON.stringify(realJsonConfig, null, 2)
       const oldFileJson = DecompilationMicroApp.readFile(this.pathInfo.outputResolve(pageJsonPath))
       if (oldFileJson.length > realJsonConfigString.length) {  // 保留信息最多的 json

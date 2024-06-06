@@ -187,6 +187,10 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
                       if (f.init.type == "LogicalExpression" && f.init.left.type == "CallExpression") {
                         if (f.init.left.callee.name == "_1") data = z[f.init.left.arguments[0].value];
                         else if (f.init.left.callee.name == "_1z") data = z[zMulName][f.init.left.arguments[1].value];
+                        if (data.startsWith('{{({') && data.endsWith('})}}')) {
+                          // 将在 getZ 的 scope 函数中为普通对象定义的表达式解析恢复为双括号，因为 template标签 中可以直接在{{}} 中放置对象， 无需再使用() 包裹  
+                          data = `{{${data.substring(4, data.length - 4)}}}`
+                        }
                       }
                     }
                   } else if (e.type == "ExpressionStatement") {

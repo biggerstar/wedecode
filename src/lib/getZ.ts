@@ -7,7 +7,17 @@ function restoreSingle(ops: any, withScope = false) {
     if (value.startsWith('{') && value.endsWith('}')) return withScope ? value : "{{(" + value + ")}}";
     return withScope ? value : "{{" + value + "}}";
   }
-
+  // function scope(value: string) {
+  //   const isObject = value.startsWith('{') && value.endsWith('}')
+  //   const hasPureVariableObj = isObject && !(value.includes('"') || value.includes("'")) && value.includes(':') // 是否是纯变量对象，比如不包含 "" 字符串等对象 
+  //   console.log(hasPureVariableObj, value)
+  //   if (isObject) {
+  //     value = value.replace('"', '"')
+  //     if (!hasPureVariableObj) return withScope ? value : "{{(" + value + ")}}";  // 符合变量对象
+  //     else return withScope ? value : "{" + value + "}";    // 纯变量对象
+  //   }
+  //   return withScope ? value : "{{" + value + "}}";   // 其他表达式
+  // }
   function enBrace(value: string, type = '{') {
     if (value.startsWith('{') ||
       value.startsWith('[') ||
