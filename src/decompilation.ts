@@ -7,7 +7,7 @@ import {JSDOM} from "jsdom";
 import {deepmerge} from "@biggerstar/deepmerge";
 import {
   arrayDeduplication,
-  commonDir,
+  commonDir, findCommonRoot,
   getPathInfo,
   jsBeautify,
   printLog,
@@ -74,8 +74,8 @@ export class DecompilationMicroApp {
   constructor(inputPath: string, outputPath?: string) {
     if (!outputPath) outputPath = path.resolve(path.dirname(inputPath), '__OUTPUT__')
     else outputPath = path.resolve(outputPath)
-    this.pathInfo = getPathInfo(inputPath, outputPath)
-    this.outputPathInfo = getPathInfo(outputPath, outputPath)
+    this.pathInfo = getPathInfo(outputPath)  // 这个后面在解压完包的时候会进行分包路径重置
+    this.outputPathInfo = getPathInfo(outputPath)  // 这个永远指向主包
     this.fileList = []
     this.packPath = inputPath
     this.codeInfo = {} as any
@@ -172,10 +172,16 @@ export class DecompilationMicroApp {
     const vm_window = dom.window
     const vm_navigator = dom.window.navigator
     const vm_document = dom.window.document
+
     return new VM(deepmerge({
       sandbox: {
         console,
+        setTimeout,
+        setInterval,
+        wx: {},
+        getApp: () => ({}),
         window: vm_window,
+        location: dom.window.location,
         navigator: vm_navigator,
         document: vm_document,
         define: () => void 0,
@@ -235,38 +241,28 @@ export class DecompilationMicroApp {
     const __APP_BUF__ = fs.readFileSync(this.packPath)
     const fileList = this.genFileList(__APP_BUF__)
     this.fileList.splice(0, this.fileList.length, ...fileList)
-    let childRootPackNameInMainPackDir = ''
-    let childRootPath = ''
     this.packType = 'child'
+    const subPackRootPath = findCommonRoot(this.fileList.map(item => item.name))
+    if (subPackRootPath) {
+      this.pathInfo.setPackRootPath(subPackRootPath)
+    }
     for (let info of this.fileList) {
       const fileName = info.name.startsWith("/") ? info.name.slice(1) : info.name
       const data = __APP_BUF__.subarray(info.off, info.off + info.size)
       /*------------------------------------------------*/
-      childRootPackNameInMainPackDir = fileName.split('/').length > 1 ? fileName.split('/')[0] : fileName // 获取主包子文件夹或者分包在主包中的第一层子文件夹名称
-      const tempArr = fileName.split('/')
-      tempArr.shift()
-      const relativeChildPackDir = tempArr.join('/')
-      childRootPath = this.pathInfo.outputResolve(childRootPackNameInMainPackDir)
-      if (path.basename(fileName).includes('app-config.json')) {
+      const childRootPath = this.pathInfo.outputResolve(fileName)
+      if (path.basename(fileName).includes('app-config.json')) {  // 独立分包也拥有自己的 app-config
         const appConfig = JSON.parse(data.toString())
-        const foundThatSubPackages = (appConfig.subPackages || []).find((sub: any) => sub.root === `${childRootPackNameInMainPackDir}/`)
+        const foundThatSubPackages = (appConfig.subPackages || [])
+          .find((sub: any) => sub.root === `${subPackRootPath}/`)
         if (!foundThatSubPackages) {
           this.packType = 'main'
         } else if (typeof foundThatSubPackages === 'object' && foundThatSubPackages['independent']) {
           this.packType = 'independent'
         }
       }
-      DecompilationMicroApp.saveFile(path.resolve(childRootPath, relativeChildPackDir), data)
+      DecompilationMicroApp.saveFile(childRootPath, data)
       /*------------------------------------------------*/
-    }
-    // console.log(this.packType)
-    if (this.packType === 'main') {
-      this.pathInfo.setPackRootPath(this.pathInfo.outputPath)
-    } else {
-      if (!childRootPath) {
-        throw new Error('\u274C 解析分包错误')
-      }
-      this.pathInfo.setPackRootPath(childRootPath)
     }
     printLog(`\n \u25B6 解小程序压缩包成功! 文件总数: ${colors.green(this.fileList.length)}`, {isStart: true})
   }
@@ -330,11 +326,11 @@ export class DecompilationMicroApp {
     });
     this.codeInfo = this.getPackCodeInfo(this.pathInfo)
     this.rootCodeInfo = this.getPackCodeInfo(this.outputPathInfo)
-    // console.log(this.rootCodeInfo)
+    // console.log(this.codeInfo)
     // console.log({...this.pathInfo})
     // console.log({...this.outputPathInfo})
     //  用户 polyfill
-    const customHeaderPathPart = path.resolve(this.pathInfo.inputDirPath, 'polyfill')
+    const customHeaderPathPart = path.resolve(path.dirname(this.packPath), 'polyfill')
     const customPloyfillGlobMatch = path.resolve(customHeaderPathPart, './**/*.js')
     const customPloyfill: string[] = glob.globSync(customPloyfillGlobMatch)
     const customPloyfillInfo = customPloyfill.map(str => {
@@ -359,8 +355,10 @@ export class DecompilationMicroApp {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     // console.log(code)
     if (!code) {
-      console.log(colors.red('\u274C  没有找到包特征文件'))
-      process.exit(0)
+      if (this.packType === 'main') {
+        console.log(colors.red('\u274C  没有找到包特征文件'))
+      }
+      return
     }
     const vm = DecompilationMicroApp.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global;`)
@@ -471,7 +469,7 @@ export class DecompilationMicroApp {
       subPackages = subPackages.filter(sub => (sub.pages || []).length > 0)
       if (Object.keys(subPackages).length >= 100) {
         console.log(` ▶ ${colors.red('程序主动结束编译, 因为 subPackages 包个数超过限制 100, 超过微信限制')}`)
-        process.exit()
+        process.exit(0)
       }
       appConfig.subPackages = subPackages;
     }
@@ -699,7 +697,9 @@ export class DecompilationMicroApp {
         DecompilationMicroApp.saveFile(wxmlAbsolutePath, `${wxmlCode}\n${templateString}`, {force: true})
       })
     }
-    printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
+    if (Object.keys(this.wxsRefInfo).length) {
+      printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
+    }
   }
 
   public async decompileWXML() {
@@ -743,8 +743,6 @@ export class DecompilationMicroApp {
     let commPath: string = '';
     let vm = DecompilationMicroApp.createVM({
       sandbox: {
-        require() {
-        },
         define(name: string) {
           name = path.dirname(name) + '/';
           if (!commPath) commPath = name;
@@ -858,8 +856,8 @@ export class DecompilationMicroApp {
     await this.decompileWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行
     await this.generateDefaultFiles()
     await this.genProjectConfigFiles()
-    await this.removeCache()
-    printLog(` ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译成功!'))}  ${colors.gray(this.pathInfo.outputPath)}\n`, {isEnd: true})
+    // await this.removeCache()
+    printLog(` ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译结束!'))}  ${colors.gray(this.pathInfo.outputPath)}\n`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
     if (process.env.DEV) {
       const jsPath = path.resolve('./test/js')
