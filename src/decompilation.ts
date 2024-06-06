@@ -471,6 +471,7 @@ export class DecompilationMicroApp {
         console.log(` ▶ ${colors.red('程序主动结束编译, 因为 subPackages 包个数超过限制 100, 超过微信限制')}`)
         process.exit(0)
       }
+      delete appConfig.subPackages
       appConfig.subPackages = subPackages;
     }
     appConfig.pages =/*必须在subPackages 之后*/ arrayDeduplication<string>(appConfig.pages, (_, cur) => !this.allSubPackagePages.includes(cur))
@@ -516,14 +517,13 @@ export class DecompilationMicroApp {
     let __wxAppCode__ = {}
     const vm = DecompilationMicroApp.createVM({
       sandbox: {
-        define: () => void 0,
-        require: () => void 0,
         __wxAppCode__: __wxAppCode__
       }
     })
     vm.run(this.codeInfo.appService)
     for (const filePath in __wxAppCode__) {
       if (path.extname(filePath) !== '.json') continue
+      console.log(filePath)
       let htmlName = replaceExt(filePath, ".html")
       if (typeof __wxAppCode__[filePath] === 'object') {
         appConfig.page[htmlName] = appConfig.page[htmlName] || {}
@@ -561,12 +561,15 @@ export class DecompilationMicroApp {
         delete realJsonConfig.rendererOptions['skyline']['sdkVersionBegin']
         delete realJsonConfig.rendererOptions['skyline']['sdkVersionEnd']
       }
-      realJsonConfig.component = true
-      let realJsonConfigString = JSON.stringify(realJsonConfig, null, 2)
       const oldFileJson = DecompilationMicroApp.readFile(this.pathInfo.outputResolve(pageJsonPath))
-      if (oldFileJson.length > realJsonConfigString.length) {  // 保留信息最多的 json
-        realJsonConfigString = oldFileJson
+      if (oldFileJson) {
+        deepmerge(realJsonConfig, JSON.parse(oldFileJson))
       }
+      realJsonConfig.component = true
+      if (realJsonConfig.renderer === 'skyline') {
+        realJsonConfig.componentFramework = realJsonConfig.componentFramework || "glass-easel"
+      }
+      let realJsonConfigString = JSON.stringify(realJsonConfig, null, 2)
       printLog(" Completed " + ` (${realJsonConfigString.length}) \t` + colors.bold(colors.gray(pageJsonPath)))
       DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(pageJsonPath), realJsonConfigString)
     }

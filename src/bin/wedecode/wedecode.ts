@@ -87,6 +87,7 @@ program
     } else {  // 文件 ( 单包 )
       await singlePackMode(config.inputPath, config.outputPath)
     }
+    printLog(` ✅  ${colors.bold(colors.green('编译流程结束!'))}`, {isEnd: true})
   })
 
 program.parse();

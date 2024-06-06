@@ -109,7 +109,11 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
           if (dec.init.type == "CallExpression") {
             switch (dec.init.callee.name) {
               case "_n":
-                push(dec.id.name, {tag: dec.init.arguments[0].value, son: [], v: {}});
+                let tagName = dec.init.arguments[0].value
+                if (['wx-scope'].includes(tagName)) {
+                  tagName = 'view'
+                }
+                push(dec.id.name, {tag: tagName, son: [], v: {}});
                 break;
               case "_v":
                 push(dec.id.name, {tag: "block", son: [], v: {}});
