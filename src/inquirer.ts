@@ -25,7 +25,6 @@ const prompts = {
           message: `wxapkg 文件' 或 '目录' 路径, 默认当前所在整个目录: `,
           name: 'inputPath',
           validate(input: any, _): any {
-            if (!input) return false
             return checkExistsWithFilePath(path.resolve(input),{throw:true});
           },
         },

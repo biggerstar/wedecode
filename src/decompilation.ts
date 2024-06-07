@@ -973,18 +973,17 @@ export class DecompilationMicroApp {
       await this.initGame()
       await this.decompileGameJSON()
       await this.decompileGameJS()
-      await this.decompileAppWorker()
     } else { // 小程序
       await this.initApp()
       await this.decompileAppJSON()
       await this.decompileAppPageJSON()
       await this.decompileAppJS()
       await this.decompileAppWXSS()
-      await this.decompileAppWorker()
       await this.decompileAppWXML()
       await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行
       await this.generateDefaultAppFiles()
     }
+    await this.decompileAppWorker()
     await this.genProjectConfigFiles()
     await this.removeCache()
     printLog(` ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译结束!'))}`, {isEnd: true})

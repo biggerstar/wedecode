@@ -1,6 +1,6 @@
 {
   "name": "wedecode",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {
@@ -36,11 +36,13 @@
   "homepage": "https://github.com/biggerstar/wedecode#readme",
   "dependencies": {
     "@biggerstar/deepmerge": "^1.0.3",
+    "@types/figlet": "^1.5.8",
     "cheerio": "1.0.0-rc.12",
     "commander": "^12.0.0",
     "cssbeautify": "^0.3.1",
     "escodegen": "^1.14.3",
     "esprima": "^4.0.1",
+    "figlet": "^1.7.0",
     "glob": "^10.3.15",
     "inquirer": "^9.2.21",
     "js-beautify": "^1.15.1",

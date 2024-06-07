@@ -9,6 +9,7 @@ import {DecompilationMicroApp} from "../../decompilation";
 import {checkExistsWithFilePath, clearScreen, printLog, sleep} from "../../common";
 import prompts from "../../inquirer";
 import checkForUpdate from "update-check";
+import figlet from "figlet";
 
 /**
  * @param {String} inputPath   wxapkg包路径
@@ -29,10 +30,14 @@ checkForUpdate(pkg).then(res => updateInfo = res).catch(() => void 0)
 function noticeUpdateNewVersion() {
   if (updateInfo && updateInfo.latest) {
     printLog(`
-      🎉  wedecode 有新版本:  ${updateInfo.latest}
-      🎄  您可以直接使用  ${colors.blue('npm i wedecode -g')}  进行更新
-      💬  npm地址:  https://www.npmjs.com/package/wedecode  
-      `)
+    🎉  wedecode 有新版本:  ${updateInfo.latest}
+    🎄  您可以直接使用  ${colors.blue('npm i wedecode -g')}  进行更新
+    💬  npm地址:  https://www.npmjs.com/package/wedecode  
+      \n`)
+  }else {
+    printLog(`
+              🎄  当前使用版本:  v${pkg.version}
+      \n`)
   }
 }
 
@@ -54,12 +59,14 @@ program
       outputPath: argMap.out
     }
     clearScreen()
-    printLog(colors.bgRed(colors.yellow(`\n     🔶       ${colors.bold(`wxapkg 反编译工具 | wedecode (${pkg.version})`)}        🔶     \n`)), {
-      isStart: true,
-      space1: '\n',
-      space2: '\n',
-      nativeOnly: true,
-    })
+    await sleep(100)
+    printLog(figlet.textSync("    wedecode", {
+      horizontalLayout: "default",
+      verticalLayout: "default",
+      whitespaceBreak: true,
+    }), {isStart: true});
+
+    await sleep(200)
     noticeUpdateNewVersion()
     if (!hasArgs) Object.assign(config, await prompts.default())   // 接收输入的配置
     if (!checkExistsWithFilePath(config.inputPath, {throw: true})) return
