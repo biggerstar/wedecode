@@ -48,6 +48,12 @@ export function getPathInfo(outputDir: string) {
     get appServicePath() {
       return resolve('app-service.js')
     },
+    get gameJsPath() {
+      return resolve('game.js')
+    },
+    get gameJsonPath() {
+      return resolve('game.json')
+    },
   }
 }
 

@@ -21,6 +21,7 @@ import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
 import * as cheerio from "cheerio";
 import cssbeautify from "cssbeautify";
+import {data} from "cheerio/lib/api/attributes";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS
@@ -31,11 +32,16 @@ export class DecompilationMicroApp {
   public outputPathInfo: ReturnType<typeof getPathInfo>
   public wxsList: any[]
   public packPath: string
-  public packType: 'main' | 'child' | 'independent'   // 主包 | 分包 | 独立分包
+  public packType: 'main' | 'sub' | 'independent'     // 主包 | 分包 | 独立分包
+  public appType: 'app' | 'game'
   public packTypeMapping = {
     main: '主包',
-    child: '分包',
+    sub: '分包',
     independent: '独立分包',   // 还是分包， 只是不依赖主包模块
+  }
+  public appTypeMapping = {
+    app: '小程序',
+    game: '小游戏',
   }
   public codeInfo: {
     appConfigJson: string,
@@ -44,6 +50,8 @@ export class DecompilationMicroApp {
     pageFrame: string,
     pageFrameHtml: string,
     appService: string,
+    gameJs: string,
+    gameJson: string,
   }
   public rootCodeInfo: {
     appConfigJson: string,
@@ -52,15 +60,17 @@ export class DecompilationMicroApp {
     pageFrame: string,
     pageFrameHtml: string,
     appService: string,
+    gameJs: string,
+    gameJson: string,
   }
   public allRefComponentList: string[] = []
   public allSubPackagePages: string[] = []
-  public DecompilationModules: {
+  public DecompilationModules?: {
     modules: Record<string, Record<any, any> | Function>
     defines: Record<any, Record<any, any>>
     entrys: Record<string, { f: Function, j: any[], i: any[], ti: any[], ic: any[] }>
   }
-  public DecompilationWXS: Record<string, Function>
+  public DecompilationWXS?: Record<string, Function>
   public wxsRefInfo: Record<string, {
     vSrc?: string,
     src: string,
@@ -241,7 +251,8 @@ export class DecompilationMicroApp {
     const __APP_BUF__ = fs.readFileSync(this.packPath)
     const fileList = this.genFileList(__APP_BUF__)
     this.fileList.splice(0, this.fileList.length, ...fileList)
-    this.packType = 'child'
+    this.packType = 'sub'
+    this.appType = 'app'
     const subPackRootPath = findCommonRoot(this.fileList.map(item => item.name))
     if (subPackRootPath) {
       this.pathInfo.setPackRootPath(subPackRootPath)
@@ -250,24 +261,27 @@ export class DecompilationMicroApp {
       const fileName = info.name.startsWith("/") ? info.name.slice(1) : info.name
       const data = __APP_BUF__.subarray(info.off, info.off + info.size)
       /*------------------------------------------------*/
-      const childRootPath = this.pathInfo.outputResolve(fileName)
-      if (path.basename(fileName).includes('app-config.json')) {  // 独立分包也拥有自己的 app-config
-        const appConfig = JSON.parse(data.toString())
-        const foundThatSubPackages = (appConfig.subPackages || [])
-          .find((sub: any) => sub.root === `${subPackRootPath}/`)
-        if (!foundThatSubPackages) {
-          this.packType = 'main'
-        } else if (typeof foundThatSubPackages === 'object' && foundThatSubPackages['independent']) {
-          this.packType = 'independent'
-        }
-      }
-      DecompilationMicroApp.saveFile(childRootPath, data)
+      const subRootPath = this.pathInfo.outputResolve(fileName)
+      DecompilationMicroApp.saveFile(subRootPath, data)
       /*------------------------------------------------*/
+    }
+    const appConfigJsonString = DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath)
+    if (appConfigJsonString) {  // 独立分包也拥有自己的 app-config
+      const appConfig: Record<any, any> = JSON.parse(appConfigJsonString)
+      const foundThatSubPackages = (appConfig.subPackages || []).find((sub: any) => sub.root === `${subPackRootPath}/`)
+      if (!foundThatSubPackages) {
+        this.packType = 'main'
+      } else if (typeof foundThatSubPackages === 'object' && foundThatSubPackages['independent']) {
+        this.packType = 'independent'
+      }
+    }
+    if (fs.existsSync(this.outputPathInfo.gameJsPath)) {
+      this.appType = 'game'
     }
     printLog(`\n \u25B6 解小程序压缩包成功! 文件总数: ${colors.green(this.fileList.length)}`, {isStart: true})
   }
 
-  public getPackCodeInfo(pathInfo: ReturnType<typeof getPathInfo>) {
+  public getPackCodeInfo(pathInfo: ReturnType<typeof getPathInfo>): typeof this.codeInfo {
     function readFile(path: string) {
       if (!path) return ''
       const content = DecompilationMicroApp.readFile(path)
@@ -288,48 +302,51 @@ export class DecompilationMicroApp {
       pageFrame: readFile(pathInfo.pageFramePath),
       workers: readFile(pathInfo.workersPath),
       pageFrameHtml: pageFrameHtmlCode,
+      gameJs: readFile(pathInfo.gameJsPath),
+      gameJson: readFile(pathInfo.gameJsonPath),
     }
   }
 
   /**
-   * 为分包注入主包的环境代码
+   * 为分包注入主包的环境代码, 自动分辨注入小程序或者小游戏代码
    * */
   public injectMainPackCode(vm: VM, env: Record<any, any> = {}) {
     if (this.packType === 'main') return
-    let baseEnvCode1 = this.rootCodeInfo.appWxss || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
-    let baseEnvCode2 = this.rootCodeInfo.appService || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
-    try {
-      if (baseEnvCode1) vm.run(baseEnvCode1)
-    } catch (e) {
-    }
-    try {
-      if (baseEnvCode2) vm.run(baseEnvCode2)
-    } catch (e) {
+    if (this.appType === 'game') {
+      let baseEnvGameCode1 = this.rootCodeInfo.gameJs
+      try {
+        if (baseEnvGameCode1) vm.run(baseEnvGameCode1)
+      } catch (e) {
 
+      }
+    } else {
+      let baseEnvCode1 = this.rootCodeInfo.appWxss || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
+      let baseEnvCode2 = this.rootCodeInfo.appService || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
+      try {
+        if (baseEnvCode1) vm.run(baseEnvCode1)
+      } catch (e) {
+      }
+      try {
+        if (baseEnvCode2) vm.run(baseEnvCode2)
+      } catch (e) {
+
+      }
+      vm.sandbox.$gwx = vm.sandbox.$gwx || (() => void 0)
+      // if (!vm.sandbox.$gwx) {
+      //   vm.sandbox.$gwx = (() => void 0)
+      // }
     }
-    vm.sandbox.$gwx = vm.sandbox.$gwx || (() => void 0)
-    // if (!vm.sandbox.$gwx) {
-    //   vm.sandbox.$gwx = (() => void 0)
-    // }
     Object.assign(vm.sandbox, env)
   }
 
-  /**
-   * 初始化, 所有后续反编译且不会被动态改变的所需要的信息都在这里加载
-   * 记住一个准则： 读取都使用 packRootPath 路径， 保存都使用 outputPath 路径
-   * */
   public async init() {
     await this.unpackWxapkg()
-    printLog(` \u25B6 当前反编译目标 (${colors.yellow(this.packTypeMapping[this.packType])}) : ` + colors.blue(this.packPath));
+    printLog(` \u25B6 当前反编译目标[ ${this.appTypeMapping[this.appType]} ] (${colors.yellow(this.packTypeMapping[this.packType])}) : ` + colors.blue(this.packPath));
     printLog(` \u25B6 当前输出目录:  ${colors.blue(this.pathInfo.outputPath)}\n`, {
       isEnd: true,
     });
     this.codeInfo = this.getPackCodeInfo(this.pathInfo)
     this.rootCodeInfo = this.getPackCodeInfo(this.outputPathInfo)
-    // console.log(this.codeInfo)
-    // console.log({...this.pathInfo})
-    // console.log({...this.outputPathInfo})
-    //  用户 polyfill
     const customHeaderPathPart = path.resolve(path.dirname(this.packPath), 'polyfill')
     const customPloyfillGlobMatch = path.resolve(customHeaderPathPart, './**/*.js')
     const customPloyfill: string[] = glob.globSync(customPloyfillGlobMatch)
@@ -345,8 +362,21 @@ export class DecompilationMicroApp {
       return {fullPath: str, ployfillPath: path.relative(headerPathPart, str)}
     })
     this.allPloyFill = [...customPloyfillInfo, ...builtinPloyfillInfo]
+  }
 
-    // console.log(this.allPloyFill)
+  /**
+   * 初始化, 所有后续反编译且不会被动态改变的所需要的信息都在这里加载
+   * 记住一个准则： 读取都使用 packRootPath 路径， 保存都使用 outputPath 路径
+   * */
+  public async initApp() {
+    if (!this.fileList.length) {
+      console.log(colors.red('\u274C  包还未解压，请先调用 unpackWxapkg 函数解压.'))
+      process.exit(0)
+    }
+    // console.log(this.codeInfo)
+    // console.log({...this.pathInfo})
+    // console.log({...this.outputPathInfo})
+    //  用户 polyfill
     const loadInfo = {}
     for (const name in this.codeInfo) {
       loadInfo[name] = this.codeInfo[name].length
@@ -446,9 +476,11 @@ export class DecompilationMicroApp {
       delete appConfig.window['navigationBarBackgroundColor']
     }
 
-    const entrys = this.DecompilationModules.entrys || {}
+    const entrys = this.DecompilationModules?.entrys || {}
     const entryList = Object.keys(entrys).map(str => replaceExt(str.replace('./', ''), ''))
-    appConfig.pages = arrayDeduplication(appConfig.pages.concat(entryList))
+    if (appConfig.pages) {
+      appConfig.pages = arrayDeduplication(appConfig.pages.concat(entryList))
+    }
     if (appConfig.subPackages) {
       let subPackages = [];
       appConfig.subPackages.forEach((subPackage: Record<any, any>) => {
@@ -456,13 +488,15 @@ export class DecompilationMicroApp {
         let newPages = [];
         root = !String(root).endsWith('/') ? root + '/' : root
         root = String(root).startsWith('/') ? root.substring(1) : root
-        for (let pageString of appConfig.pages) {
-          if (pageString.startsWith(root)) {
-            newPages.push(pageString.replace(root, ''));
-          }
-        }
         subPackage.root = root;
-        subPackage.pages = newPages;
+        if (Array.isArray(appConfig.pages)) {
+          for (let pageString of appConfig.pages) {
+            if (pageString.startsWith(root)) {
+              newPages.push(pageString.replace(root, ''));
+            }
+          }
+          subPackage.pages = newPages;
+        }
         delete subPackage.plugins
         subPackages.push(subPackage);
       })
@@ -474,7 +508,9 @@ export class DecompilationMicroApp {
       delete appConfig.subPackages
       appConfig.subPackages = subPackages;
     }
-    appConfig.pages =/*必须在subPackages 之后*/ arrayDeduplication<string>(appConfig.pages, (_, cur) => !this.allSubPackagePages.includes(cur))
+    if (appConfig.pages) {
+      appConfig.pages =/*必须在subPackages 之后*/ arrayDeduplication<string>(appConfig.pages, (_, cur) => !this.allSubPackagePages.includes(cur))
+    }
 
     if (appConfig.tabBar) {
       if (!appConfig.tabBar.list) appConfig.tabBar.list = []
@@ -501,17 +537,18 @@ export class DecompilationMicroApp {
         return result
       })
     }
+    const outputFileName = 'app.json'
     const appConfigSaveString = JSON.stringify(appConfig, null, 2)
-    DecompilationMicroApp.saveFile(this.pathInfo.outputResolve('app.json'), appConfigSaveString, {force: true})
-    printLog(" Completed " + ` (${appConfigSaveString.length}) \t` + colors.bold(colors.gray(this.pathInfo.outputResolve('app.json'))))
-    printLog(` \u25B6 反编译 app.json 文件成功. \n`, {isStart: true})
+    DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(outputFileName), appConfigSaveString, {force: true})
+    printLog(" Completed " + ` (${appConfigSaveString.length}) \t` + colors.bold(colors.gray(this.pathInfo.outputResolve(outputFileName))))
+    printLog(` \u25B6 反编译 ${outputFileName} 文件成功. \n`, {isStart: true})
 
   }
 
   /**
    * 处理子包 json，只需要处理主包， 子包解压自带 json
    * */
-  public async decompileJSON() {
+  public async decompileAppPageJSON() {
     if (this.packType !== 'main') return
     const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)   // 黑名单模式: 直接操作 app-config.json 可以适配官方未来可能增加的配置字段
     let __wxAppCode__ = {}
@@ -576,7 +613,7 @@ export class DecompilationMicroApp {
     printLog(` \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
   }
 
-  public async decompileJS() {
+  public async decompileAppJS() {
     const _this = this
     const vm = DecompilationMicroApp.createVM({
       sandbox: {
@@ -617,7 +654,7 @@ export class DecompilationMicroApp {
     }
   }
 
-  public async decompileWXSS() {
+  public async decompileAppWXSS() {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code.trim()) return
     const vm = DecompilationMicroApp.createVM()
@@ -642,7 +679,7 @@ export class DecompilationMicroApp {
     printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
   }
 
-  public async decompileWXS() {
+  public async decompileAppWXS() {
     const decompilationWXS = this.DecompilationWXS
     const funcHeader = 'nv_module={nv_exports:{}};';
     const funcEnd = 'return nv_module.nv_exports;}';
@@ -705,7 +742,7 @@ export class DecompilationMicroApp {
     }
   }
 
-  public async decompileWXML() {
+  public async decompileAppWXML() {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code) return
     let xPool = []
@@ -732,7 +769,7 @@ export class DecompilationMicroApp {
     printLog(` \u25B6 反编译所有 wxml 文件成功. \n`, {isStart: true})
   }
 
-  public async decompileWorker(): Promise<any> {
+  public async decompileAppWorker(): Promise<any> {
     await sleep(200)
     if (!fs.existsSync(this.pathInfo.workersPath)) {
       return
@@ -764,7 +801,7 @@ export class DecompilationMicroApp {
   /**
    * 生成组件构成必要素的默认 json wxs, wxml, wxss 文件
    * */
-  public async generateDefaultFiles() {
+  public async generateDefaultAppFiles() {
     const allPageAbsolutePathList = glob.globSync(`${this.pathInfo.packRootPath}/**/*.html`).filter((str) => {
       return ![
         'page-frame.html'
@@ -844,23 +881,113 @@ export class DecompilationMicroApp {
     if (cont) {
       printLog(`\n \u25B6 移除中间缓存产物成功, 总计 ${colors.yellow(cont)} 个`, {isStart: true})
     }
+  }
 
+  /**
+   * 初始化小游戏所需环境和变量
+   * */
+  public async initGame() {
+
+  }
+
+  /**
+   * 反编译 game.json 文件， 只有主包需要处理
+   * */
+  public async decompileGameJSON() {
+    if (this.packType !== 'main') return
+    await sleep(200)
+    const appConfigString = this.codeInfo.appConfigJson
+    const appConfig: Record<any, any> = JSON.parse(appConfigString)
+    Object.assign(appConfig, appConfig.global)
+    appConfig.plugins = {}
+    const deleteKeys = [
+      'openDataContext',
+    ]
+    deleteKeys.forEach(key => delete appConfig[key])
+
+    const outputFileName = 'game.json'
+    const gameConfigSaveString = JSON.stringify(appConfig, null, 2)
+    DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(outputFileName), gameConfigSaveString, {force: true})
+    printLog(" Completed " + ` (${gameConfigSaveString.length}) \t` + colors.bold(colors.gray(this.pathInfo.outputResolve(outputFileName))))
+    printLog(` \u25B6 反编译 ${outputFileName} 文件成功. \n`, {isStart: true})
+  }
+
+  /**
+   * 反编译小游戏的js文件
+   * */
+  public async decompileGameJS() {
+    const _this_game = this
+    const vm = DecompilationMicroApp.createVM({
+      sandbox: {
+        define(name: string, func: string) {
+          /* 看看是否有 polyfill,  有的话直接使用注入 polyfill */
+          const foundPloyfill = _this_game.allPloyFill.find(item => {
+            return name.endsWith(item.ployfillPath)
+          })
+          let resultGameCode: string = ''
+          if (foundPloyfill) {
+            resultGameCode = DecompilationMicroApp.readFile(foundPloyfill.fullPath)
+          } else {
+            let gameCode = func.toString();
+            gameCode = gameCode.slice(gameCode.indexOf("{") + 1, gameCode.lastIndexOf("}") - 1).trim();
+            resultGameCode = gameCode
+            if (gameCode.startsWith('"use strict";') || gameCode.startsWith("'use strict';")) {
+              gameCode = gameCode.slice(13);
+            } else if ((gameCode.startsWith('(function(){"use strict";') || gameCode.startsWith("(function(){'use strict';")) && gameCode.endsWith("})();")) {
+              gameCode = gameCode.slice(25, -5);
+            }
+            gameCode = gameCode.replaceAll('require("@babel', 'require("./@babel')
+            resultGameCode = jsBeautify(gameCode);
+          }
+          if (resultGameCode.trim()) {
+            // if (name === 'game.js') return
+            DecompilationMicroApp.saveFile(_this_game.pathInfo.outputResolve(name), removeVM2ExceptionLine(resultGameCode), {force: true})
+            printLog(" Completed " + ` (${resultGameCode.length}) \t` + colors.bold(colors.gray(name)))
+          }
+        },
+        System: {
+          register: () => void 0,
+        },
+        e: () => void 0,
+        require: () => ({}),
+        definePlugin: () => void 0,
+        requirePlugin: () => void 0,
+      }
+    })
+    if (this.codeInfo.gameJs) {
+      try {
+        this.injectMainPackCode(vm)
+        vm.run(this.codeInfo.gameJs)
+        printLog(` \u25B6 反编译所有 game.js 文件成功. \n`, {isStart: true})
+      }catch (e) {
+        
+      }
+    }
   }
 
   public async decompileAll() {
     /* 开始编译 */
     await this.init()
-    await this.decompileAppJSON()
-    await this.decompileJSON()
-    await this.decompileJS()
-    await this.decompileWXSS()
-    await this.decompileWorker()
-    await this.decompileWXML()
-    await this.decompileWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行
-    await this.generateDefaultFiles()
+    // console.log(this.appType, this.packType)
+    if (this.appType === 'game') {  // 小游戏
+      await this.initGame()
+      await this.decompileGameJSON()
+      await this.decompileGameJS()
+      await this.decompileAppWorker()
+    } else { // 小程序
+      await this.initApp()
+      await this.decompileAppJSON()
+      await this.decompileAppPageJSON()
+      await this.decompileAppJS()
+      await this.decompileAppWXSS()
+      await this.decompileAppWorker()
+      await this.decompileAppWXML()
+      await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行
+      await this.generateDefaultAppFiles()
+    }
     await this.genProjectConfigFiles()
-    // await this.removeCache()
-    printLog(` ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译结束!'))}  ${colors.gray(this.pathInfo.outputPath)}\n`, {isEnd: true})
+    await this.removeCache()
+    printLog(` ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译结束!'))}`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
     if (process.env.DEV) {
       const jsPath = path.resolve('./test/js')

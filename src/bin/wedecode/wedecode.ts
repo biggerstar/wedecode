@@ -44,7 +44,7 @@ program
   .description('\u25B6 wxapkg 解包工具')
   .version(pkg.version)
   .option("-o, --out <out-path>", '指定编译输出地目录， 正常是主包目录')
-  .option("--overwrite <overwrite>", '直接覆盖旧的产物')
+  .option("-ow --overwrite <overwrite>", '直接覆盖旧的产物')
   .action(async (argMap: Record<any, any>, options: Record<any, any>) => {
     await sleep(200)
     const args = options.args || []
