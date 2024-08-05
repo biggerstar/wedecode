@@ -30,7 +30,7 @@ checkForUpdate(pkg).then(res => updateInfo = res).catch(() => void 0)
 function noticeUpdateNewVersion() {
   if (updateInfo && updateInfo.latest) {
     printLog(`
-    🎉  wedecode 有新版本:  ${updateInfo.latest}
+    🎉  wedecode 有新版本:  v${pkg.version}  ==>  v${updateInfo.latest}
     🎄  您可以直接使用  ${colors.blue('npm i wedecode -g')}  进行更新
     💬  npm地址:  https://www.npmjs.com/package/wedecode  
       \n`)

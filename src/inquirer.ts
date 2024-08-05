@@ -1,11 +1,6 @@
 import inquirer from "inquirer";
-import colors from "picocolors";
 import path from "node:path";
 import {checkExistsWithFilePath} from "./common";
-
-type PromptsOptType = {
-  message?: string
-}
 
 const prompts = {
   async default() {
@@ -25,7 +20,7 @@ const prompts = {
           message: `wxapkg 文件' 或 '目录' 路径, 默认当前所在整个目录: `,
           name: 'inputPath',
           validate(input: any, _): any {
-            return checkExistsWithFilePath(path.resolve(input),{throw:true});
+            return checkExistsWithFilePath(path.resolve(input), {throw: true});
           },
         },
         {
@@ -36,7 +31,7 @@ const prompts = {
       ]
     )
   },
-  isClearOldCache(cachePath=''){
+  isClearOldCache(cachePath = '') {
     return inquirer['prompt'](
       [
         {
@@ -50,6 +45,6 @@ const prompts = {
         },
       ]
     )
-  }
+  },
 }
 export default prompts

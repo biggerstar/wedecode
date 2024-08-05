@@ -21,7 +21,6 @@ import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
 import * as cheerio from "cheerio";
 import cssbeautify from "cssbeautify";
-import {data} from "cheerio/lib/api/attributes";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS
