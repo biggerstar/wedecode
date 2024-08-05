@@ -48,6 +48,9 @@ export function getPathInfo(outputDir: string) {
     get appServicePath() {
       return resolve('app-service.js')
     },
+    get appServiceAppPath() {
+      return resolve('appservice.app.js')
+    },
     get gameJsPath() {
       return resolve('game.js')
     },
@@ -86,6 +89,7 @@ export function limitPush(arr: any[], data: any, limit = 10) {
   arr.push(data)
 }
 
+const openStreamLog = false
 export function printLog(log: string, opt: {
   isStart?: boolean,
   isEnd?: boolean,
@@ -97,6 +101,10 @@ export function printLog(log: string, opt: {
   nativeOnly?: boolean,
   interceptor?: (log: string) => any
 } = {}) {
+  if (!openStreamLog){
+    console.log(log)
+    return;
+  }
   if (!log || !log.trim()) return
   if (opt.interceptor) printLog['interceptor'] = opt.interceptor
   if (opt.space1) printLog['space1'] = opt.space1

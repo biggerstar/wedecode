@@ -33,11 +33,15 @@ function noticeUpdateNewVersion() {
     🎉  wedecode 有新版本:  v${pkg.version}  ==>  v${updateInfo.latest}
     🎄  您可以直接使用  ${colors.blue('npm i wedecode -g')}  进行更新
     💬  npm地址:  https://www.npmjs.com/package/wedecode  
-      \n`)
+      \n`,{
+      isStart: true,
+    })
   }else {
     printLog(`
               🎄  当前使用版本:  v${pkg.version}
-      \n`)
+      \n`,{
+      isStart: true,
+    })
   }
 }
 
@@ -79,7 +83,7 @@ program
         printLog(`\n \u25B6 移除旧产物成功 `)
       }
     }
-    printLog(` \u25B6 当前操作类型: ${colors.yellow(isDirectory ? '分包模式' : '单包模式')}`, {isEnd: true})
+    printLog(`\n \u25B6 当前操作类型: ${colors.yellow(isDirectory ? '分包模式' : '单包模式')}`, {isEnd: true})
 
     if (isDirectory) {
       const wxapkgPathList = fs.readdirSync(config.inputPath).filter(str => {

@@ -21,6 +21,8 @@ import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
 import * as cheerio from "cheerio";
 import cssbeautify from "cssbeautify";
+import {createWxFakeDom} from "./wx-dom";
+import * as vm from "vm";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS
@@ -49,6 +51,7 @@ export class DecompilationMicroApp {
     pageFrame: string,
     pageFrameHtml: string,
     appService: string,
+    appServiceApp: string,
     gameJs: string,
     gameJson: string,
   }
@@ -181,22 +184,27 @@ export class DecompilationMicroApp {
     const vm_window = dom.window
     const vm_navigator = dom.window.navigator
     const vm_document = dom.window.document
-
+    const __wxAppCode__ = {}
+    const fakeGlobal = {
+      __wxAppCode__,
+      publishDomainComponents: () => void 0,
+    }
+    Object.assign(vm_window, fakeGlobal)
     return new VM(deepmerge({
       sandbox: {
-        console,
-        setTimeout,
-        setInterval,
-        wx: {},
-        getApp: () => ({}),
+        ...createWxFakeDom(),
         window: vm_window,
         location: dom.window.location,
         navigator: vm_navigator,
         document: vm_document,
         define: () => void 0,
         require: () => void 0,
+        requirePlugin: () => void 0,
+        global: {
+          __wcc_version__: 'v0.5vv_20211229_syb_scopedata',
+        },
         __vd_version_info__: {},
-        __wxAppCode__: {},
+        __wxAppCode__,
         __wxCodeSpace__: {
           setRuntimeGlobals: () => void 0,
           addComponentStaticConfig: () => void 0,
@@ -293,11 +301,13 @@ export class DecompilationMicroApp {
       pageFrameHtmlCode = $('script').text()
     }
     const appServiceCode = readFile(pathInfo.appServicePath)
+    const appServiceAppCode = readFile(pathInfo.appServiceAppPath)
     this._testCodeInfo.appService.code = appServiceCode
     return {
       appConfigJson: readFile(pathInfo.appConfigJsonPath),
       appWxss: readFile(pathInfo.appWxssPath),
       appService: appServiceCode,
+      appServiceApp: appServiceAppCode,
       pageFrame: readFile(pathInfo.pageFramePath),
       workers: readFile(pathInfo.workersPath),
       pageFrameHtml: pageFrameHtmlCode,
@@ -391,6 +401,7 @@ export class DecompilationMicroApp {
     }
     const vm = DecompilationMicroApp.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global;`)
+    // code = code.replaceAll('function(path,global){', `function(path,global){ window.DecompilationModules1 = global;`)
     code = code.replace(
       'var nom={};return function(n){',
       'var nom={}; window.DecompilationWXS = nnm; return function(n){ var keepPath = n; '
@@ -405,6 +416,11 @@ export class DecompilationMicroApp {
     this._testCodeInfo["appWxss"].code = code
     this.DecompilationModules = vm.sandbox.window['DecompilationModules'] || {}
     this.DecompilationWXS = vm.sandbox.window['DecompilationWXS'] || {}
+    for (let path in vm.sandbox.__wxAppCode__) {
+      const value = vm.sandbox.__wxAppCode__[path]
+      if (path.startsWith('plugin-private://')) path = path.replace('plugin-private://', '__plugin__/')
+      this.DecompilationModules.modules[path] = value
+    }
     for (const filepath in this.DecompilationModules.modules) {
       if (path.extname(filepath) !== '.wxml') continue
       const wxmlRefWxsMap = this.DecompilationModules.modules[filepath]
@@ -614,6 +630,7 @@ export class DecompilationMicroApp {
 
   public async decompileAppJS() {
     const _this = this
+    const plugins = {}
     const vm = DecompilationMicroApp.createVM({
       sandbox: {
         define(name: string, func: string) {
@@ -641,15 +658,56 @@ export class DecompilationMicroApp {
             printLog(" Completed " + ` (${resultCode.length}) \t` + colors.bold(colors.gray(name)))
           }
         },
-        require: () => void 0,
-        definePlugin: () => void 0,
-        requirePlugin: () => void 0,
+        definePlugin: function (pluginName: string, pluginFunc: string) {
+          // requirePlugin
+          // console.log(plugin, pluginCode.toString())
+          plugins[pluginName] = pluginFunc
+          // console.log(plugin, pluginCode)
+          // DecompilationMicroApp.saveFile('piugin.js', args[1].toString())
+        },
       }
     })
     if (this.codeInfo.appService) {
       this.injectMainPackCode(vm)
       vm.run(this.codeInfo.appService)
+      this._decompilePluginAppJS(vm, plugins)
       printLog(` \u25B6 反编译所有 js 文件成功. \n`, {isStart: true})
+    }
+  }
+  
+  /**
+   * 反编译插件 JS 代码
+   * */
+  private _decompilePluginAppJS(vm: VM, plugins: Record<string, Function>) {
+    const sandBox = vm.sandbox
+    const mainEnvDefine = sandBox.define
+    const _this = this
+    // 反编译插件的 JS 代码
+    for (const pluginName in plugins) {
+      const appid = pluginName.replace('plugin://', '')
+      sandBox.define = function (name: string, func: string) {
+        const pluginPath = _this.pathInfo.resolve(`__plugin__/${appid}/${name}`)
+        mainEnvDefine(pluginPath, func)
+      }
+      const pluginFunc = plugins[pluginName]
+      pluginFunc(
+        sandBox.define,
+        sandBox.require,
+        sandBox.module,
+        sandBox.exports,
+        sandBox.window,
+        sandBox.wx,
+        sandBox.App,
+        sandBox.Page,
+        sandBox.Component,
+        sandBox.Behavior,
+        sandBox.getApp,
+        sandBox.getCurrentPages,
+        sandBox.console,
+        sandBox.requireMiniProgram,
+        sandBox.WXWebAssembly,
+        sandBox.__wxCodeSpace__
+      )
     }
   }
 
@@ -958,8 +1016,8 @@ export class DecompilationMicroApp {
         this.injectMainPackCode(vm)
         vm.run(this.codeInfo.gameJs)
         printLog(` \u25B6 反编译所有 game.js 文件成功. \n`, {isStart: true})
-      }catch (e) {
-        
+      } catch (e) {
+
       }
     }
   }
@@ -984,8 +1042,8 @@ export class DecompilationMicroApp {
     }
     await this.decompileAppWorker()
     await this.genProjectConfigFiles()
-    await this.removeCache()
-    printLog(` ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译结束!'))}`, {isEnd: true})
+    // await this.removeCache()
+    printLog(`\n ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译结束!'))}`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
     if (process.env.DEV) {
       const jsPath = path.resolve('./test/js')
