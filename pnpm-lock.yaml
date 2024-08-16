@@ -14,6 +14,9 @@ importers:
       '@biggerstar/inquirer-selectable-table':
         specifier: ^1.0.2
         version: 1.0.2
+      '@types/fs-extra':
+        specifier: ^11.0.4
+        version: 11.0.4
       cheerio:
         specifier: 1.0.0-rc.12
         version: 1.0.0-rc.12
@@ -35,6 +38,9 @@ importers:
       figures:
         specifier: ^3.2.0
         version: 3.2.0
+      fs-extra:
+        specifier: ^11.2.0
+        version: 11.2.0
       glob:
         specifier: ^10.4.1
         version: 10.4.1
@@ -674,6 +680,9 @@ packages:
   '@types/figlet@1.5.8':
     resolution: {integrity: sha512-G22AUvy4Tl95XLE7jmUM8s8mKcoz+Hr+Xm9W90gJsppJq9f9tHvOGkrpn4gRX0q/cLtBdNkWtWCKDg2UDZoZvQ==}
 
+  '@types/fs-extra@11.0.4':
+    resolution: {integrity: sha512-yTbItCNreRooED33qjunPthRcSjERP1r4MqCZc7wv0u2sUkzTFp45tgUfS5+r7FrZPdmCCNflLhVSP/o+SemsQ==}
+
   '@types/fs-extra@8.1.5':
     resolution: {integrity: sha512-0dzKcwO+S8s2kuF5Z9oUWatQJj5Uq/iqphEtE3GQJVRRYm/tD1LglU2UnXi2A8jLq5umkGouOXOR9y0n613ZwQ==}
 
@@ -688,6 +697,9 @@ packages:
 
   '@types/jsdom@21.1.7':
     resolution: {integrity: sha512-yOriVnggzrnQ3a9OKOCxaVuSug3w3/SbOj5i7VwXWZEyUNl3bLF9V3MfxGbZKuwqJOQyRfqXyROBB1CoZLFWzA==}
+
+  '@types/jsonfile@6.1.4':
+    resolution: {integrity: sha512-D5qGUYwjvnNNextdU59/+fI+spnwtTFmyQP0h+PfIOSkNfpU6AOICUOkm4i0OnSk+NyjdPJrxCDro0sJsWlRpQ==}
 
   '@types/minimatch@3.0.5':
     resolution: {integrity: sha512-Klz949h02Gz2uZCMGwDUSDS1YBlTdDDgbWHi+81l29tQALUtvz4rAYi5uoVhE5Lagoq6DeqAUlbrHvW/mXDgdQ==}
@@ -3724,6 +3736,11 @@ snapshots:
 
   '@types/figlet@1.5.8': {}
 
+  '@types/fs-extra@11.0.4':
+    dependencies:
+      '@types/jsonfile': 6.1.4
+      '@types/node': 20.14.2
+
   '@types/fs-extra@8.1.5':
     dependencies:
       '@types/node': 20.14.2
@@ -3745,6 +3762,10 @@ snapshots:
       '@types/node': 20.14.2
       '@types/tough-cookie': 4.0.5
       parse5: 7.1.2
+
+  '@types/jsonfile@6.1.4':
+    dependencies:
+      '@types/node': 20.14.2
 
   '@types/minimatch@3.0.5': {}
 

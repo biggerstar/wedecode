@@ -18,7 +18,7 @@
     "test: cmd": "wedecode",
     "dev:unpack:file": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mini-game/_subpackages_common_.wxapkg",
     "dev:unpack:file:nooverwrite": "DEV=true wedecode -o OUTPUT pkg/issues2/_pagesA_.wxapkg",
-    "dev:unpack:dir": "DEV=true wedecode -ow true -o OUTPUT pkg/issues8/transfer-kefu.wxapkg",
+    "dev:unpack:dir": "DEV=true wedecode -ow true -o OUTPUT pkg/game-wxb98ac240fd74b0e3",
     "dev:unpack:subPack": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
     "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
   },
@@ -38,6 +38,7 @@
   "dependencies": {
     "@biggerstar/deepmerge": "^1.0.3",
     "@biggerstar/inquirer-selectable-table": "^1.0.2",
+    "@types/fs-extra": "^11.0.4",
     "cheerio": "1.0.0-rc.12",
     "commander": "^12.1.0",
     "cssbeautify": "^0.3.1",

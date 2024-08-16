@@ -4,6 +4,7 @@ import {stdout as slog} from 'single-line-log'
 import fs from "node:fs";
 import colors from "picocolors";
 import JS from 'js-beautify'
+import {c} from "vite/dist/node/types.d-aGj9QkWt";
 
 export function getPathInfo(outputDir: string) {
   let _packRootPath = outputDir
@@ -14,8 +15,9 @@ export function getPathInfo(outputDir: string) {
     return path.resolve(outputDir, _new_resolve_path, ...args)
   }
   return {
-    /** 相对当前包作为根路径路径进行解析 */
+    /** 相对当前包( 子包， 主包， 插件包都算当前路径 )作为根路径路径进行解析 */
     resolve,
+    /** 相对当前主包路径进行解析 */
     outputResolve,
     outputPath: outputDir,
     setPackRootPath(rootPath: string) {
@@ -199,4 +201,22 @@ export function findCommonRoot(paths: string[]) {
     }
   }
   return commonRoot.join('/')
+}
+
+export function isPluginPath(path:string) {
+  return path.startsWith('plugin-private://')
+}
+
+/**
+ * 获取某个函数的入参定义的名称
+ * */
+export function getParameterNames(fn: Function) {
+  if(typeof fn !== 'function') return [];
+  const COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
+  const code = fn.toString().replace(COMMENTS, '');
+  const result = code.slice(code.indexOf('(') + 1, code.indexOf(')'))
+    .match(/([^\s,]+)/g);
+  return result === null
+    ? []
+    : result;
 }

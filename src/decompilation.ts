@@ -7,8 +7,8 @@ import {JSDOM} from "jsdom";
 import {deepmerge} from "@biggerstar/deepmerge";
 import {
   arrayDeduplication,
-  commonDir, findCommonRoot,
-  getPathInfo,
+  commonDir, findCommonRoot, getParameterNames,
+  getPathInfo, isPluginPath,
   jsBeautify,
   printLog,
   removeVM2ExceptionLine,
@@ -22,7 +22,6 @@ import {getZ} from "./lib/getZ";
 import * as cheerio from "cheerio";
 import cssbeautify from "cssbeautify";
 import {createWxFakeDom} from "./wx-dom";
-import * as vm from "vm";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS
@@ -67,11 +66,22 @@ export class DecompilationMicroApp {
   }
   public allRefComponentList: string[] = []
   public allSubPackagePages: string[] = []
+  /**
+   * 不包含插件的所有各种的模块定义
+   * */
   public DecompilationModules?: {
     modules: Record<string, Record<any, any> | Function>
     defines: Record<any, Record<any, any>>
     entrys: Record<string, { f: Function, j: any[], i: any[], ti: any[], ic: any[] }>
   }
+  /**
+   * 所有插件的所有各种的模块定义
+   * */
+  private PLUGINS: Record<string, {
+    modules: Record<string, Record<any, any> | Function>
+    defines: Record<any, Record<any, any>>
+    entrys: Record<string, { f: Function, j: any[], i: any[], ti: any[], ic: any[] }>
+  }> = {}
   public DecompilationWXS?: Record<string, Function>
   public wxsRefInfo: Record<string, {
     vSrc?: string,
@@ -80,8 +90,14 @@ export class DecompilationMicroApp {
     moduleName?: string,
     templateList?: string[]
   }[]> = {}
+  /**
+   * 所有在 page.json 中被引用的组件
+   * */
+  private allUsingComponents = []
   public allPloyFill: { fullPath: string, ployfillPath: string }[] = []
   private readonly _testCodeInfo: Record<'appService' | 'appWxss' | 'pageFrame', { path: string, code: string }>
+  private static pluginDirRename = ['__plugin__', 'plugin_']
+  private static allUsingPluginPrivateFiles = []
 
   constructor(inputPath: string, outputPath?: string) {
     if (!outputPath) outputPath = path.resolve(path.dirname(inputPath), '__OUTPUT__')
@@ -132,7 +148,6 @@ export class DecompilationMicroApp {
     for (const filePath of pathList) {
       if (fs.existsSync(filePath)) {
         const data = fs.readFileSync(filePath, encoding)
-        console.log(111, data)
         if (data.length) {
           return {
             found: true,
@@ -156,7 +171,12 @@ export class DecompilationMicroApp {
    * @param {boolean} opt.force 是否强制覆盖, 默认为 false
    * @param {boolean} opt.emptyInstead 如果文原始件为空则允许覆盖
    * */
-  public static saveFile(filepath: string, data: any, opt: { force?: boolean, emptyInstead?: boolean } = {}): boolean {
+  public static saveFile(
+    filepath: string,
+    data: string | Buffer,
+    opt: { force?: boolean, emptyInstead?: boolean } = {}
+  ): boolean {
+    filepath = filepath.replace(DecompilationMicroApp.pluginDirRename[0], DecompilationMicroApp.pluginDirRename[1]) // 重定向插件路径
     const targetData = fs.existsSync(filepath) ? fs.readFileSync(filepath, {encoding: 'utf-8'}).trim() : ''
     let force = typeof opt.force === 'boolean' ? opt.force : opt.emptyInstead || !targetData.length
     const outputDirPath = path.dirname(filepath)
@@ -165,6 +185,19 @@ export class DecompilationMicroApp {
     if (isExistsFile && !force) return false
     if (!isExistsPath) {
       fs.mkdirSync(outputDirPath, {recursive: true})
+    }
+    if (typeof data === 'string') {
+      const hasPluginPrivate = /plugin-private:\/\//.test(data)
+      const hasPlugin = /plugin:\/\//.test(data)
+      const allUsingPluginPrivateFiles = DecompilationMicroApp.allUsingPluginPrivateFiles
+      const hasBlackList = DecompilationMicroApp.removeList.find(key => filepath.includes(key))
+      if (
+        !allUsingPluginPrivateFiles.includes(filepath) &&
+        (hasPluginPrivate || hasPlugin) &&
+        !hasBlackList
+      ) {
+        DecompilationMicroApp.allUsingPluginPrivateFiles.push(filepath)
+      }
     }
     fs.writeFileSync(filepath, data)
     return true
@@ -401,7 +434,6 @@ export class DecompilationMicroApp {
     }
     const vm = DecompilationMicroApp.createVM()
     code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global;`)
-    // code = code.replaceAll('function(path,global){', `function(path,global){ window.DecompilationModules1 = global;`)
     code = code.replace(
       'var nom={};return function(n){',
       'var nom={}; window.DecompilationWXS = nnm; return function(n){ var keepPath = n; '
@@ -412,14 +444,22 @@ export class DecompilationMicroApp {
     code = code + ';window.isHookReady = true'
     this.injectMainPackCode(vm)
     vm.run(code)
-
     this._testCodeInfo["appWxss"].code = code
-    this.DecompilationModules = vm.sandbox.window['DecompilationModules'] || {}
-    this.DecompilationWXS = vm.sandbox.window['DecompilationWXS'] || {}
-    for (let path in vm.sandbox.__wxAppCode__) {
-      const value = vm.sandbox.__wxAppCode__[path]
-      if (path.startsWith('plugin-private://')) path = path.replace('plugin-private://', '__plugin__/')
-      this.DecompilationModules.modules[path] = value
+    this.DecompilationModules = {...vm.sandbox.window['DecompilationModules']} || {}
+    this.DecompilationWXS = {...vm.sandbox.window['DecompilationWXS']} || {}
+    for (const name in vm.sandbox) {
+      vm.sandbox.__wxAppCode__ = {}
+      const global = {}
+      if (name.startsWith('$gwx_wx')) { // 插件处理
+        const appId = name.replace('$gwx_', '') // 插件APPID
+        const func = vm.sandbox[name]
+        try {
+          // 将所有的 $gwx_  加载到 global 对象中， window.DecompilationModules 是 global 的引用
+          func(void 0, global)
+          this.PLUGINS[appId] = global as any
+        } catch (e) {
+        }
+      }
     }
     for (const filepath in this.DecompilationModules.modules) {
       if (path.extname(filepath) !== '.wxml') continue
@@ -553,11 +593,12 @@ export class DecompilationMicroApp {
       })
     }
     const outputFileName = 'app.json'
-    const appConfigSaveString = JSON.stringify(appConfig, null, 2)
+    const appConfigSaveString = JSON
+      .stringify(appConfig, null, 2)
+      .replaceAll(DecompilationMicroApp.pluginDirRename[0], DecompilationMicroApp.pluginDirRename[1]) // 插件换名， 因为官方禁止反编译 __ 开头 目录
     DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(outputFileName), appConfigSaveString, {force: true})
     printLog(" Completed " + ` (${appConfigSaveString.length}) \t` + colors.bold(colors.gray(this.pathInfo.outputResolve(outputFileName))))
     printLog(` \u25B6 反编译 ${outputFileName} 文件成功. \n`, {isStart: true})
-
   }
 
   /**
@@ -566,23 +607,33 @@ export class DecompilationMicroApp {
   public async decompileAppPageJSON() {
     if (this.packType !== 'main') return
     const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)   // 黑名单模式: 直接操作 app-config.json 可以适配官方未来可能增加的配置字段
-    let __wxAppCode__ = {}
+    const plugins: Record<string, Function> = {}
     const vm = DecompilationMicroApp.createVM({
       sandbox: {
-        __wxAppCode__: __wxAppCode__
+        definePlugin: function (pluginName: string, pluginFunc: Function) {
+          plugins[pluginName] = pluginFunc
+        },
       }
     })
     vm.run(this.codeInfo.appService)
+    // 解析代码中的各个模块  json 配置
+    this._injectPluginAppPageJSON(vm, plugins) // 要在解析 __wxAppCode__ 之前将插件的page.json配置注入 __wxAppCode__
+    const __wxAppCode__ = vm.sandbox.__wxAppCode__;
+    // console.log(__wxAppCode__)
     for (const filePath in __wxAppCode__) {
+      let newFilePath = filePath
       if (path.extname(filePath) !== '.json') continue
-      console.log(filePath)
-      let htmlName = replaceExt(filePath, ".html")
+      if (isPluginPath(filePath)) {
+        newFilePath = path.join(DecompilationMicroApp.pluginDirRename[0], filePath.replace('plugin-private:/', ''))
+      }
+      let htmlName = replaceExt(newFilePath, ".html")
       if (typeof __wxAppCode__[filePath] === 'object') {
         appConfig.page[htmlName] = appConfig.page[htmlName] || {}
         if (!appConfig.page[htmlName].window) appConfig.page[htmlName].window = {}
         deepmerge(appConfig.page[htmlName].window, __wxAppCode__[filePath], {safe: false})
       }
     }
+    // 解析 app-config.json 中的各个模块配置
     for (let pageHtmlPath in appConfig.page) {
       // console.log(pageHtmlPath)
       const pageJsonConfig = appConfig.page[pageHtmlPath]
@@ -621,60 +672,101 @@ export class DecompilationMicroApp {
       if (realJsonConfig.renderer === 'skyline') {
         realJsonConfig.componentFramework = realJsonConfig.componentFramework || "glass-easel"
       }
+      delete realJsonConfig.navigationStyle
       let realJsonConfigString = JSON.stringify(realJsonConfig, null, 2)
+      // 将 usingComponents 和 componentGenerics 合并一起处理
+      const usingComponents = {
+        ...realJsonConfig?.usingComponents || {},
+        ...realJsonConfig?.componentGenerics || {}
+      } || {}
+      for (const compName in usingComponents) {
+        let refCompInfo = usingComponents[compName]
+        let refCompPath = ''
+        if (typeof refCompInfo === 'object') refCompPath = refCompInfo.default
+        else if (typeof refCompInfo === 'string') refCompPath = refCompInfo
+        else if (typeof refCompInfo === 'boolean') continue
+        else continue
+        const compRealPath = path.join(path.dirname(pageJsonPath), refCompPath)
+        if (this.allUsingComponents.includes(compRealPath)) continue
+        this.allUsingComponents.push(compRealPath)
+      }
       printLog(" Completed " + ` (${realJsonConfigString.length}) \t` + colors.bold(colors.gray(pageJsonPath)))
       DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(pageJsonPath), realJsonConfigString)
     }
     printLog(` \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
   }
 
+  /**
+   * 将 json 信息注入沙箱 __wxAppCode__ 中
+   * */
+  private _injectPluginAppPageJSON(vm: VM, plugins: Record<string, Function>) {
+    const sandBox = vm.sandbox
+    sandBox.global = sandBox.window;
+    // 反编译插件的 JS 代码
+    for (const pluginName in plugins) {
+      const pluginFunc = plugins[pluginName]
+      const paramNameList = getParameterNames(pluginFunc)
+      const paramValueList = paramNameList.map((name: string) => sandBox[name] || sandBox.window[name])
+      pluginFunc.apply(sandBox.window, paramValueList)
+    }
+  }
+
   public async decompileAppJS() {
     const _this = this
-    const plugins = {}
+    const plugins: Record<string, Function> = {}
+    const sandbox = {
+      require() {
+      },
+      define(name: string, func: string) {
+        // console.log(name, func);
+        /* 看看是否有 polyfill,  有的话直接使用注入 polyfill */
+        const foundPloyfill = _this.allPloyFill.find(item => {
+          return name.endsWith(item.ployfillPath)
+        })
+        let resultCode: string = ''
+        if (foundPloyfill) {
+          resultCode = DecompilationMicroApp.readFile(foundPloyfill.fullPath)
+        } else {
+          let code = func.toString();
+          code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
+          resultCode = code;
+          if (code.startsWith('"use strict";') || code.startsWith("'use strict';")) {
+            code = code.slice(13);
+          } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
+            code = code.slice(25, -5);
+          }
+          code = code.replaceAll('require("@babel', 'require("./@babel')
+          resultCode = jsBeautify(code);
+        }
+        if (resultCode.trim()) {
+          DecompilationMicroApp.saveFile(
+            _this.pathInfo.outputResolve(name),
+            removeVM2ExceptionLine(resultCode),
+            {force: true}
+          )
+          printLog(" Completed " + ` (${resultCode.length}) \t` + colors.bold(colors.gray(name)))
+        }
+      },
+      definePlugin: function (pluginName: string, pluginFunc: Function) {
+        plugins[pluginName] = pluginFunc
+      },
+    }
     const vm = DecompilationMicroApp.createVM({
-      sandbox: {
-        define(name: string, func: string) {
-          /* 看看是否有 polyfill,  有的话直接使用注入 polyfill */
-          const foundPloyfill = _this.allPloyFill.find(item => {
-            return name.endsWith(item.ployfillPath)
-          })
-          let resultCode: string = ''
-          if (foundPloyfill) {
-            resultCode = DecompilationMicroApp.readFile(foundPloyfill.fullPath)
-          } else {
-            let code = func.toString();
-            code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
-            resultCode = code;
-            if (code.startsWith('"use strict";') || code.startsWith("'use strict';")) {
-              code = code.slice(13);
-            } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
-              code = code.slice(25, -5);
-            }
-            code = code.replaceAll('require("@babel', 'require("./@babel')
-            resultCode = jsBeautify(code);
-          }
-          if (resultCode.trim()) {
-            DecompilationMicroApp.saveFile(_this.pathInfo.outputResolve(name), removeVM2ExceptionLine(resultCode), {force: true})
-            printLog(" Completed " + ` (${resultCode.length}) \t` + colors.bold(colors.gray(name)))
-          }
-        },
-        definePlugin: function (pluginName: string, pluginFunc: string) {
-          // requirePlugin
-          // console.log(plugin, pluginCode.toString())
-          plugins[pluginName] = pluginFunc
-          // console.log(plugin, pluginCode)
-          // DecompilationMicroApp.saveFile('piugin.js', args[1].toString())
-        },
-      }
+      sandbox: sandbox
     })
     if (this.codeInfo.appService) {
       this.injectMainPackCode(vm)
-      vm.run(this.codeInfo.appService)
+      let appServiceCode = this.codeInfo.appService
+      appServiceCode = appServiceCode
+        .replaceAll('=__webnode__.define;', ';')
+        .replaceAll('=__webnode__.require;', ';')
+      vm.run(appServiceCode)
+      Object.assign(vm.sandbox, sandbox)
       this._decompilePluginAppJS(vm, plugins)
       printLog(` \u25B6 反编译所有 js 文件成功. \n`, {isStart: true})
     }
   }
-  
+
   /**
    * 反编译插件 JS 代码
    * */
@@ -682,35 +774,29 @@ export class DecompilationMicroApp {
     const sandBox = vm.sandbox
     const mainEnvDefine = sandBox.define
     const _this = this
+    sandBox.global = sandBox.window;
+    let pluginDefine: Function
     // 反编译插件的 JS 代码
     for (const pluginName in plugins) {
       const appid = pluginName.replace('plugin://', '')
-      sandBox.define = function (name: string, func: string) {
-        const pluginPath = _this.pathInfo.resolve(`__plugin__/${appid}/${name}`)
+      pluginDefine = function (name: string, func: string) {
+        const pluginPath = _this.pathInfo.resolve(`${DecompilationMicroApp.pluginDirRename[0]}/${appid}/${name}`)
         mainEnvDefine(pluginPath, func)
       }
       const pluginFunc = plugins[pluginName]
-      pluginFunc(
-        sandBox.define,
-        sandBox.require,
-        sandBox.module,
-        sandBox.exports,
-        sandBox.window,
-        sandBox.wx,
-        sandBox.App,
-        sandBox.Page,
-        sandBox.Component,
-        sandBox.Behavior,
-        sandBox.getApp,
-        sandBox.getCurrentPages,
-        sandBox.console,
-        sandBox.requireMiniProgram,
-        sandBox.WXWebAssembly,
-        sandBox.__wxCodeSpace__
-      )
+      const paramNameList = getParameterNames(pluginFunc)
+      const paramValueList = paramNameList.map((name: string) => {
+        if (name === 'define') return pluginDefine
+        return sandBox[name] || sandBox.window[name] || sandBox.window.document[name]
+      })
+      // console.log(pluginName, getParameterNames(pluginFunc));
+      pluginFunc.apply(sandBox.window, paramValueList)
     }
   }
 
+  /**
+   * 反编译包中的 wxss 文件
+   * */
   public async decompileAppWXSS() {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code.trim()) return
@@ -719,21 +805,35 @@ export class DecompilationMicroApp {
     vm.run(code)
     const __wxAppCode__ = vm.sandbox['__wxAppCode__']
     if (!__wxAppCode__) return
-    Object.keys(__wxAppCode__).forEach(filepath => path.extname(filepath) === '.wxss' && __wxAppCode__[filepath]())
-    const allHeadElement: HTMLStyleElement[] = Array.from(vm.sandbox.window.document.head.children)
-    allHeadElement.forEach(styleEl => {
-      const attr = styleEl.attributes.getNamedItem('wxss:path')
-      if (!attr) return
-      const outPath = attr.value
-      let cssText = styleEl.innerHTML
-      if (cssText && outPath && outPath !== 'undefined') {
-        cssText = cssText.replace(/body\s*\{/g, 'page{')  // 不太严谨， 后面使用 StyleSheet 进行处理
-        DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(outPath), cssbeautify(cssText))
-        printLog(" Completed " + ` (${cssText.length}) \t` + colors.bold(colors.gray(outPath)))
+    const children = vm.sandbox.window.document.head.children || [] as HTMLStyleElement[]
+    const mainPackageRenderedNodes = Array.from(children)
+    // 先加载所有的 css，在节点中可能已经加载了部分主页的的 css， 下方作用是模拟切换页面并加载其页面的 css
+    for (let filepath in __wxAppCode__) {
+      if (path.extname(filepath) !== '.wxss') continue
+      __wxAppCode__[filepath]()
+      const lastStyleEl = children[children.length - 1]
+      const attr_wxss_path = lastStyleEl.getAttribute('wxss:path')
+      if (!attr_wxss_path) return
+      if (isPluginPath(filepath)) { // 解析插件，重定向到插件所在路径
+        filepath = filepath.replace('plugin-private://', `${DecompilationMicroApp.pluginDirRename[0]}/`)
+        lastStyleEl.setAttribute('wxss:path', filepath)
       }
-
+    }
+    // 提取 css 及其所在路径
+    Array.from(children).forEach((styleEl: Element) => {
+      if (this.packType !== 'main') {
+        if (mainPackageRenderedNodes.includes(styleEl)) return
+      }
+      const wxss_path = styleEl.getAttribute('wxss:path')
+      if (['', 'null', 'undefined', undefined, null].includes(wxss_path)) return
+      let cssText = styleEl.innerHTML
+      cssText = cssText.replace(/body\s*\{/g, 'page{')  // 不太严谨， 后面使用 StyleSheet 进行处理
+      DecompilationMicroApp.saveFile(this.pathInfo.outputResolve(wxss_path), cssbeautify(cssText))
+      printLog(" Completed " + ` (${cssText.length}) \t` + colors.bold(colors.gray(wxss_path)))
     })
-    printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
+    if (children.length) {
+      printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
+    }
   }
 
   public async decompileAppWXS() {
@@ -813,8 +913,20 @@ export class DecompilationMicroApp {
     vm.run(code)
     getZ(code, (z: Record<string, any[]>) => {
       const {entrys, defines} = this.DecompilationModules
-      for (let wxmlPath in entrys) {
-        const result = tryDecompileWxml(entrys[wxmlPath].f.toString(), z, defines[wxmlPath], xPool)
+      const allEntrys = {...entrys}
+      for (const appId in this.PLUGINS) {
+        const pluginEntrys = this.PLUGINS[appId].entrys
+        const newPluginEntrys = {}
+        for (const name in pluginEntrys) {
+          const pluginFilePath = this.pathInfo.resolve(path.join(`${DecompilationMicroApp.pluginDirRename[0]}/${appId}`, name))
+          newPluginEntrys[pluginFilePath] = pluginEntrys[name]
+          // console.log(pluginFilePath)
+        }
+        Object.assign(allEntrys, newPluginEntrys)
+      }
+      // console.log(allEntrys)
+      for (let wxmlPath in allEntrys) {
+        const result = tryDecompileWxml(allEntrys[wxmlPath].f.toString(), z, defines[wxmlPath], xPool)
         if (result) {
           const wxmlFullPath = this.pathInfo.outputResolve(wxmlPath)
           DecompilationMicroApp.saveFile(wxmlFullPath, result, {force: true})  // 不管文件存在或者存在默认模板， 此时通过 z 反编译出来的文件便是 wxml, 直接保存覆盖 
@@ -832,7 +944,6 @@ export class DecompilationMicroApp {
       return
     }
     if (!fs.existsSync(this.pathInfo.appJsonPath)) {
-      printLog(' \u274C  未能找到 app.json 文件', {isEnd: true})
       return
     }
     const appConfig: Record<any, any> = JSON.parse(DecompilationMicroApp.readFile(this.pathInfo.appJsonPath))
@@ -865,7 +976,12 @@ export class DecompilationMicroApp {
       ].includes(path.basename(str))
     })
     const allPage = allPageAbsolutePathList.map(str => str.replace(this.pathInfo.packRootPath, '.'))
-    const allPageAndComp = allPage.concat(this.allRefComponentList).concat(this.allSubPackagePages)
+    const allPageAndComp = allPage
+      .concat(this.allRefComponentList)
+      .concat(this.allSubPackagePages)
+      .concat(this.allUsingComponents)
+    // console.log(this.allSubPackagePages)
+
     for (let pagePath of allPageAndComp) {
       // /* json */
       // console.log(replaceExt(pagePath, ".json"), pagePath)
@@ -895,25 +1011,34 @@ export class DecompilationMicroApp {
     const projectPrivateConfigData = {
       "setting": {
         "es6": false,
-        "urlCheck": false
+        "urlCheck": false,
+        "ignoreDevUnusedFiles": false,
+        "ignoreUploadUnusedFiles": false,
       }
     }
     DecompilationMicroApp.saveFile(projectPrivateConfigPath, JSON.stringify(projectPrivateConfigData, null, 2))
   }
 
+  private static removeList = [
+    // 'app-config.json',
+    'page-frame.html',
+    'app-wxss.js',
+    'app-service.js',
+    'index.appservice.js',
+    'index.webview.js',
+    'appservice.app.js',
+    'page-frame.js',
+    'webview.app.js',
+    'common.app.js',
+    'plugin.json',
+  ]
+
   public async removeCache() {
     await sleep(500)
     let cont = 0
-    const allFile = glob.globSync(`${this.pathInfo.packRootPath}/**/**{.js,.html,.json}`)
-    const removeList = [
-      // 'app-config.json',
-      'app-wxss.js',
-      'page-frame.html',
-      'app-service.js',
-      'appservice.app.js',
-      'page-frame.js',
-      'webview.app.js',
-    ]
+    const absolutePackRootPath = this.pathInfo.outputResolve(this.pathInfo.packRootPath)
+    const allFile = glob.globSync(`${absolutePackRootPath}/**/**{.js,.html,.json}`)
+    const removeList = DecompilationMicroApp.removeList
     allFile.forEach(filepath => {
       const fileName = path.basename(filepath).trim()
       const extname = path.extname(filepath)
@@ -1022,6 +1147,41 @@ export class DecompilationMicroApp {
     }
   }
 
+  /**
+   * 重定向远程插件到本地插件
+   * */
+  public async redirectPluginPrivate() {
+    const appConfigString = DecompilationMicroApp.readFile(this.pathInfo.outputResolve('app-config.json'))
+    const appConfig: Record<any, any> = JSON.parse(appConfigString)
+    const pluginsMap = appConfig.plugins
+    const allUsingPluginPrivateFiles = DecompilationMicroApp.allUsingPluginPrivateFiles
+    const allPluginPackPath = glob.globSync(`${this.pathInfo.outputPath}/**/${DecompilationMicroApp.pluginDirRename[1]}/*`)
+    const allPluginPackPathMap = {}
+    const matchPrivateReg = /plugin-private:\/\/(\w+)\//g
+    const matchReg = /plugin:\/\/(\w+)\//g
+    allPluginPackPath.forEach(packPath => {
+      const pathPartList = packPath.split('/')
+      const appId = pathPartList[pathPartList.length - 1]
+      allPluginPackPathMap[appId] = path.relative(this.pathInfo.outputPath, packPath)
+    })
+    // console.log(allPluginPackPathMap)
+    DecompilationMicroApp.allUsingPluginPrivateFiles = []
+    allUsingPluginPrivateFiles.forEach(filePath => {
+      let codeString = DecompilationMicroApp.readFile(filePath)
+      codeString = codeString
+        .replace(matchPrivateReg, (_, matchAppId) => {
+          return allPluginPackPathMap[matchAppId] + '/'
+        })
+        .replace(matchReg, (match, pluginName) => {
+          const pluginInfo: void | Record<any, any> = pluginsMap[pluginName]
+          if (!pluginInfo) return match
+          const appid = pluginInfo.provider
+          return allPluginPackPathMap[appid] + '/'
+        })
+      DecompilationMicroApp.saveFile(filePath, codeString, {force: true})
+    })
+  }
+
   public async decompileAll() {
     /* 开始编译 */
     await this.init()
@@ -1037,12 +1197,13 @@ export class DecompilationMicroApp {
       await this.decompileAppJS()
       await this.decompileAppWXSS()
       await this.decompileAppWXML()
-      await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行
+      await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行 
       await this.generateDefaultAppFiles()
     }
+    // await this.redirectPluginPrivate()
     await this.decompileAppWorker()
     await this.genProjectConfigFiles()
-    // await this.removeCache()
+    await this.removeCache()
     printLog(`\n ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译结束!'))}`, {isEnd: true})
     /* 将最终运行代码同步到 web 测试文件夹 */
     if (process.env.DEV) {

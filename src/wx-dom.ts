@@ -26,7 +26,8 @@ export function createWxFakeDom() {
     module: {},
     exports: {},
     global: {},
-    Behavior: {},
+    Behavior: function () {
+    },
     getCurrentPages: () => [],
     requireMiniProgram: function () {
     },

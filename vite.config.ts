@@ -14,6 +14,7 @@ const external = [
   'js-beautify',
   'uglify-js',
   'vite',
+  'fs-extra',
   'vm2',
   'node:path',
   'node:process',
