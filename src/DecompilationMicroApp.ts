@@ -1,13 +1,11 @@
-import type {RmOptions} from "fs";
-import {VM, type VMOptions} from 'vm2'
+import {VM} from 'vm2'
 import fs from "node:fs";
 import colors from "picocolors";
 import path from "node:path";
-import {JSDOM} from "jsdom";
 import {deepmerge} from "@biggerstar/deepmerge";
 import {
   arrayDeduplication,
-  commonDir, findCommonRoot, getParameterNames,
+  commonDir, getParameterNames,
   getPathInfo, isPluginPath,
   jsBeautify,
   printLog,
@@ -19,21 +17,17 @@ import {glob} from "glob";
 import process from "node:process";
 import {tryDecompileWxml} from "./lib/decompileWxml";
 import {getZ} from "./lib/getZ";
-import * as cheerio from "cheerio";
 import cssbeautify from "cssbeautify";
-import {createWxFakeDom} from "./wx-dom";
+import {UnpackWxapkg} from "./interface/UnpackWxapkg";
+import {CodeInfo, ModuleDefine} from "./type/type";
 
 /**
  * HOOK 增加的全局变量   DecompilationWXS
  * */
-export class DecompilationMicroApp {
-  public readonly fileList: any[]
+export class DecompilationMicroApp extends UnpackWxapkg {
   public pathInfo: ReturnType<typeof getPathInfo>
   public outputPathInfo: ReturnType<typeof getPathInfo>
   public wxsList: any[]
-  public packPath: string
-  public packType: 'main' | 'sub' | 'independent'     // 主包 | 分包 | 独立分包
-  public appType: 'app' | 'game'
   public packTypeMapping = {
     main: '主包',
     sub: '分包',
@@ -43,45 +37,18 @@ export class DecompilationMicroApp {
     app: '小程序',
     game: '小游戏',
   }
-  public codeInfo: {
-    appConfigJson: string,
-    appWxss: string,
-    workers: string,
-    pageFrame: string,
-    pageFrameHtml: string,
-    appService: string,
-    appServiceApp: string,
-    gameJs: string,
-    gameJson: string,
-  }
-  public rootCodeInfo: {
-    appConfigJson: string,
-    appWxss: string,
-    workers: string,
-    pageFrame: string,
-    pageFrameHtml: string,
-    appService: string,
-    gameJs: string,
-    gameJson: string,
-  }
+  public codeInfo: CodeInfo
+  public rootCodeInfo: CodeInfo
   public allRefComponentList: string[] = []
   public allSubPackagePages: string[] = []
   /**
    * 不包含插件的所有各种的模块定义
    * */
-  public DecompilationModules?: {
-    modules: Record<string, Record<any, any> | Function>
-    defines: Record<any, Record<any, any>>
-    entrys: Record<string, { f: Function, j: any[], i: any[], ti: any[], ic: any[] }>
-  }
+  public DecompilationModules?: ModuleDefine
   /**
    * 所有插件的所有各种的模块定义
    * */
-  private PLUGINS: Record<string, {
-    modules: Record<string, Record<any, any> | Function>
-    defines: Record<any, Record<any, any>>
-    entrys: Record<string, { f: Function, j: any[], i: any[], ti: any[], ic: any[] }>
-  }> = {}
+  private PLUGINS: Record<string, ModuleDefine> = {}
   public DecompilationWXS?: Record<string, Function>
   public wxsRefInfo: Record<string, {
     vSrc?: string,
@@ -95,16 +62,13 @@ export class DecompilationMicroApp {
    * */
   private allUsingComponents = []
   public allPloyFill: { fullPath: string, ployfillPath: string }[] = []
-  private readonly _testCodeInfo: Record<'appService' | 'appWxss' | 'pageFrame', { path: string, code: string }>
-  private static pluginDirRename = ['__plugin__', 'plugin_']
-  private static allUsingPluginPrivateFiles = []
 
   constructor(inputPath: string, outputPath?: string) {
+    super()
     if (!outputPath) outputPath = path.resolve(path.dirname(inputPath), '__OUTPUT__')
     else outputPath = path.resolve(outputPath)
     this.pathInfo = getPathInfo(outputPath)  // 这个后面在解压完包的时候会进行分包路径重置
     this.outputPathInfo = getPathInfo(outputPath)  // 这个永远指向主包
-    this.fileList = []
     this.packPath = inputPath
     this.codeInfo = {} as any
     if (path.extname(inputPath) !== '.wxapkg') {
@@ -117,236 +81,6 @@ export class DecompilationMicroApp {
         // return !(log.includes('Completed') || log.includes('反编译所有'))
       }
     });
-    this._testCodeInfo = {
-      appService: {
-        path: './test/js/app-service.js',
-        code: ''
-      },
-      appWxss: {
-        path: './test/js/app-wxss.js',
-        code: ''
-      },
-      pageFrame: {
-        path: './test/js/page-frame.js',
-        code: ''
-      },
-    }
-  }
-
-  public static readFile(path: string, encoding: BufferEncoding = 'utf-8'): string {
-    return fs.existsSync(path) ? fs.readFileSync(path, encoding) : ''
-  }
-
-  /**
-   * 顺序读取列表中的文件， 直到读取的文件包含内容
-   * */
-  public static readFileUntilContainContent(pathList: string[], encoding: BufferEncoding = 'utf-8'): {
-    data: string,
-    found: boolean,
-    path: string
-  } {
-    for (const filePath of pathList) {
-      if (fs.existsSync(filePath)) {
-        const data = fs.readFileSync(filePath, encoding)
-        if (data.length) {
-          return {
-            found: true,
-            data,
-            path: filePath
-          }
-        }
-      }
-    }
-    return {
-      found: false,
-      data: '',
-      path: ''
-    }
-  }
-
-  /**
-   * @param {string} filepath
-   * @param {any} data
-   * @param {Object} opt
-   * @param {boolean} opt.force 是否强制覆盖, 默认为 false
-   * @param {boolean} opt.emptyInstead 如果文原始件为空则允许覆盖
-   * */
-  public static saveFile(
-    filepath: string,
-    data: string | Buffer,
-    opt: { force?: boolean, emptyInstead?: boolean } = {}
-  ): boolean {
-    filepath = filepath.replace(DecompilationMicroApp.pluginDirRename[0], DecompilationMicroApp.pluginDirRename[1]) // 重定向插件路径
-    const targetData = fs.existsSync(filepath) ? fs.readFileSync(filepath, {encoding: 'utf-8'}).trim() : ''
-    let force = typeof opt.force === 'boolean' ? opt.force : opt.emptyInstead || !targetData.length
-    const outputDirPath = path.dirname(filepath)
-    const isExistsFile = fs.existsSync(filepath)
-    const isExistsPath = fs.existsSync(outputDirPath)
-    if (isExistsFile && !force) return false
-    if (!isExistsPath) {
-      fs.mkdirSync(outputDirPath, {recursive: true})
-    }
-    if (typeof data === 'string') {
-      const hasPluginPrivate = /plugin-private:\/\//.test(data)
-      const hasPlugin = /plugin:\/\//.test(data)
-      const allUsingPluginPrivateFiles = DecompilationMicroApp.allUsingPluginPrivateFiles
-      const hasBlackList = DecompilationMicroApp.removeList.find(key => filepath.includes(key))
-      if (
-        !allUsingPluginPrivateFiles.includes(filepath) &&
-        (hasPluginPrivate || hasPlugin) &&
-        !hasBlackList
-      ) {
-        DecompilationMicroApp.allUsingPluginPrivateFiles.push(filepath)
-      }
-    }
-    fs.writeFileSync(filepath, data)
-    return true
-  }
-
-  public static deleteFile(path: string, opt: RmOptions & { catch?: boolean } = {}): void {
-    try {
-      fs.rmSync(path, opt)
-    } catch (e) {
-      if (!opt.catch) throw e
-    }
-  }
-
-  public static createVM(vmOptions: VMOptions = {}) {
-    const domBaseHtml = `<!DOCTYPE html><html lang="en"><head><title>''</title></head><body></body></html>`
-    const dom = new JSDOM(domBaseHtml);
-    const vm_window = dom.window
-    const vm_navigator = dom.window.navigator
-    const vm_document = dom.window.document
-    const __wxAppCode__ = {}
-    const fakeGlobal = {
-      __wxAppCode__,
-      publishDomainComponents: () => void 0,
-    }
-    Object.assign(vm_window, fakeGlobal)
-    return new VM(deepmerge({
-      sandbox: {
-        ...createWxFakeDom(),
-        window: vm_window,
-        location: dom.window.location,
-        navigator: vm_navigator,
-        document: vm_document,
-        define: () => void 0,
-        require: () => void 0,
-        requirePlugin: () => void 0,
-        global: {
-          __wcc_version__: 'v0.5vv_20211229_syb_scopedata',
-        },
-        __vd_version_info__: {},
-        __wxAppCode__,
-        __wxCodeSpace__: {
-          setRuntimeGlobals: () => void 0,
-          addComponentStaticConfig: () => void 0,
-          setStyleScope: () => void 0,
-          addTemplateDependencies: () => void 0,
-          batchAddCompiledScripts: () => void 0,
-          batchAddCompiledTemplate: () => void 0,
-        },
-      }
-    }, vmOptions));
-  }
-
-  /**
-   * 获取包中的文件列表, 包含开始和结束的字节信息
-   * */
-  public genFileList(__APP_BUF__: Buffer) {
-    const headerBuffer = __APP_BUF__.subarray(0, 14)
-    /* 获取头字节数据 */
-    let firstMark = headerBuffer.readUInt8(0);
-    let infoListLength = headerBuffer.readUInt32BE(5);
-    // let dataLength = headerBuffer.readUInt32BE(9);
-    let lastMark = headerBuffer.readUInt8(13);
-    if (firstMark !== 0xbe || lastMark !== 0xed) {
-      console.log(` \n\u274C ${colors.red(
-        '这不是一个正确的小程序包,在微信3.8版本以下的 PC, MAC 包需要解密\n' +
-        '所以你需要尝试先使用项目中的解密工具 decryption-tool/UnpackMiniApp.exe 解密')}\n地址:  https://github.com/biggerstar/wedecode'`
-      )
-      process.exit(0)
-    }
-
-    const buf = __APP_BUF__.subarray(14, infoListLength + 14)
-    let fileCount = buf.readUInt32BE(0);
-    let fileList = [], off = 4;
-    for (let i = 0; i < fileCount; i++) {
-      let info: Record<any, any> = {};
-      let nameLen = buf.readUInt32BE(off);
-      off += 4;
-      info.name = buf.toString('utf8', off, off + nameLen);
-      off += nameLen;
-      info.off = buf.readUInt32BE(off);
-      off += 4;
-      info.size = buf.readUInt32BE(off);
-      off += 4;
-      fileList.push(info);
-    }
-    return fileList
-  }
-
-  /** 保存该包中的所有文件 */
-  public async unpackWxapkg() {
-    const __APP_BUF__ = fs.readFileSync(this.packPath)
-    const fileList = this.genFileList(__APP_BUF__)
-    this.fileList.splice(0, this.fileList.length, ...fileList)
-    this.packType = 'sub'
-    this.appType = 'app'
-    const subPackRootPath = findCommonRoot(this.fileList.map(item => item.name))
-    if (subPackRootPath) {
-      this.pathInfo.setPackRootPath(subPackRootPath)
-    }
-    for (let info of this.fileList) {
-      const fileName = info.name.startsWith("/") ? info.name.slice(1) : info.name
-      const data = __APP_BUF__.subarray(info.off, info.off + info.size)
-      /*------------------------------------------------*/
-      const subRootPath = this.pathInfo.outputResolve(fileName)
-      DecompilationMicroApp.saveFile(subRootPath, data)
-      /*------------------------------------------------*/
-    }
-    const appConfigJsonString = DecompilationMicroApp.readFile(this.pathInfo.appConfigJsonPath)
-    if (appConfigJsonString) {  // 独立分包也拥有自己的 app-config
-      const appConfig: Record<any, any> = JSON.parse(appConfigJsonString)
-      const foundThatSubPackages = (appConfig.subPackages || []).find((sub: any) => sub.root === `${subPackRootPath}/`)
-      if (!foundThatSubPackages) {
-        this.packType = 'main'
-      } else if (typeof foundThatSubPackages === 'object' && foundThatSubPackages['independent']) {
-        this.packType = 'independent'
-      }
-    }
-    if (fs.existsSync(this.outputPathInfo.gameJsPath)) {
-      this.appType = 'game'
-    }
-    printLog(`\n \u25B6 解小程序压缩包成功! 文件总数: ${colors.green(this.fileList.length)}`, {isStart: true})
-  }
-
-  public getPackCodeInfo(pathInfo: ReturnType<typeof getPathInfo>): typeof this.codeInfo {
-    function readFile(path: string) {
-      if (!path) return ''
-      const content = DecompilationMicroApp.readFile(path)
-      return content.length > 100 ? content : ''
-    }
-
-    let pageFrameHtmlCode = readFile(pathInfo.pageFrameHtmlPath)
-    if (pageFrameHtmlCode) {
-      const $ = cheerio.load(pageFrameHtmlCode);
-      pageFrameHtmlCode = $('script').text()
-    }
-    const appServiceCode = readFile(pathInfo.appServicePath)
-    const appServiceAppCode = readFile(pathInfo.appServiceAppPath)
-    this._testCodeInfo.appService.code = appServiceCode
-    return {
-      appConfigJson: readFile(pathInfo.appConfigJsonPath),
-      appWxss: readFile(pathInfo.appWxssPath),
-      appService: appServiceCode,
-      appServiceApp: appServiceAppCode,
-      pageFrame: readFile(pathInfo.pageFramePath),
-      workers: readFile(pathInfo.workersPath),
-      pageFrameHtml: pageFrameHtmlCode,
-      gameJs: readFile(pathInfo.gameJsPath),
-      gameJson: readFile(pathInfo.gameJsonPath),
-    }
   }
 
   /**
@@ -444,7 +178,6 @@ export class DecompilationMicroApp {
     code = code + ';window.isHookReady = true'
     this.injectMainPackCode(vm)
     vm.run(code)
-    this._testCodeInfo["appWxss"].code = code
     this.DecompilationModules = {...vm.sandbox.window['DecompilationModules']} || {}
     this.DecompilationWXS = {...vm.sandbox.window['DecompilationWXS']} || {}
     for (const name in vm.sandbox) {
@@ -1019,20 +752,6 @@ export class DecompilationMicroApp {
     DecompilationMicroApp.saveFile(projectPrivateConfigPath, JSON.stringify(projectPrivateConfigData, null, 2))
   }
 
-  private static removeList = [
-    // 'app-config.json',
-    'page-frame.html',
-    'app-wxss.js',
-    'app-service.js',
-    'index.appservice.js',
-    'index.webview.js',
-    'appservice.app.js',
-    'page-frame.js',
-    'webview.app.js',
-    'common.app.js',
-    'plugin.json',
-  ]
-
   public async removeCache() {
     await sleep(500)
     let cont = 0
@@ -1069,7 +788,7 @@ export class DecompilationMicroApp {
    * 初始化小游戏所需环境和变量
    * */
   public async initGame() {
-
+    // pass
   }
 
   /**
@@ -1205,16 +924,6 @@ export class DecompilationMicroApp {
     await this.genProjectConfigFiles()
     await this.removeCache()
     printLog(`\n ✅  ${colors.bold(colors.green(this.packTypeMapping[this.packType] + '反编译结束!'))}`, {isEnd: true})
-    /* 将最终运行代码同步到 web 测试文件夹 */
-    if (process.env.DEV) {
-      const jsPath = path.resolve('./test/js')
-      if (fs.existsSync(jsPath)) fs.rmSync(jsPath, {recursive: true})
-      for (const name in this._testCodeInfo) {
-        const item = this._testCodeInfo[name]
-        if (!item.code) continue
-        DecompilationMicroApp.saveFile(item.path, item.code)
-      }
-    }
   }
 }
 

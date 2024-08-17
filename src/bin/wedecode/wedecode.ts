@@ -5,7 +5,7 @@ import pkg from '../../../package.json';
 import path from 'node:path';
 import fs from 'node:fs';
 import colors from 'picocolors'
-import {DecompilationMicroApp} from "../../decompilation";
+import {DecompilationMicroApp} from "../../DecompilationMicroApp";
 import {checkExistsWithFilePath, clearScreen, printLog, sleep} from "../../common";
 import prompts from "../../inquirer";
 import checkForUpdate from "update-check";
