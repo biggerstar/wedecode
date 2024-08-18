@@ -5,11 +5,11 @@ import pkg from '../../../package.json';
 import path from 'node:path';
 import fs from 'node:fs';
 import colors from 'picocolors'
-import {DecompilationMicroApp} from "../../DecompilationMicroApp";
-import {checkExistsWithFilePath, clearScreen, printLog, sleep} from "../../common";
-import prompts from "../../inquirer";
+import prompts from "../../utils/inquirer";
 import checkForUpdate from "update-check";
 import figlet from "figlet";
+import {Decompilation} from "@/Decompilation";
+import {checkExistsWithFilePath, clearScreen, printLog, sleep} from "@/utils/common";
 
 /**
  * @param {String} inputPath   wxapkg包路径
@@ -20,7 +20,7 @@ async function singlePackMode(inputPath: string, outputPath: string) {
     console.log(colors.red('\u274C  不是一个包'), inputPath)
     return
   }
-  const decompilationMicroApp = new DecompilationMicroApp(inputPath, outputPath)
+  const decompilationMicroApp = new Decompilation(inputPath, outputPath)
   await decompilationMicroApp.decompileAll()
 }
 

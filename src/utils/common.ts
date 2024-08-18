@@ -4,9 +4,8 @@ import {stdout as slog} from 'single-line-log'
 import fs from "node:fs";
 import colors from "picocolors";
 import JS from 'js-beautify'
-import {c} from "vite/dist/node/types.d-aGj9QkWt";
 
-export function getPathInfo(outputDir: string) {
+export function getPathResolveInfo(outputDir: string) {
   let _packRootPath = outputDir
   const resolve = (_new_resolve_path: string, ...args: string[]): string => {
     return path.resolve(outputDir, _packRootPath, _new_resolve_path, ...args)

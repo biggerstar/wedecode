@@ -18,7 +18,7 @@
     "test:cmd": "wedecode",
     "dev:unpack:file": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mini-game/_subpackages_common_.wxapkg",
     "dev:unpack:file:nooverwrite": "DEV=true wedecode -o OUTPUT pkg/issues2/_pagesA_.wxapkg",
-    "dev:unpack:dir": "DEV=true wedecode -ow true -o OUTPUT pkg/game-wxb98ac240fd74b0e3",
+    "dev:unpack:dir": "DEV=true wedecode -ow true -o OUTPUT pkg/issues8",
     "dev:unpack:subPack": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
     "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
   },

@@ -1,29 +1,18 @@
 import colors from "picocolors";
 import process from "node:process";
 import fs from "node:fs";
-import {findCommonRoot, getPathInfo, printLog} from "../common";
-import {DecompilationBase} from "./DecompilationBase";
-import * as cheerio from "cheerio";
-import {DecompilationMicroApp} from "../DecompilationMicroApp";
-import {CodeInfo} from "../type/type";
+import {findCommonRoot, getPathResolveInfo, printLog} from "@/utils/common";
+import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
+import {MiniAppType, MiniPackType, UnPackInfo} from "@/type";
 
-export abstract class UnpackWxapkg extends DecompilationBase{
-  public readonly fileList: any[]
-  public packType: 'main' | 'sub' | 'independent'     // 主包 | 分包 | 独立分包
-  public appType: 'app' | 'game'
-  public packPath: string
-  public abstract pathInfo: ReturnType<typeof getPathInfo>
-  public abstract outputPathInfo: ReturnType<typeof getPathInfo>
-  
-  protected constructor() {
-    super();
-    this.fileList = []
-  }
-  
+/**
+ * 用于解包
+ * */
+export class UnpackWxapkg {
   /**
    * 获取包中的文件列表, 包含开始和结束的字节信息
    * */
-  public genFileList(__APP_BUF__: Buffer) {
+  private static genFileList(__APP_BUF__: Buffer) {
     const headerBuffer = __APP_BUF__.subarray(0, 14)
     /* 获取头字节数据 */
     let firstMark = headerBuffer.readUInt8(0);
@@ -37,7 +26,6 @@ export abstract class UnpackWxapkg extends DecompilationBase{
       )
       process.exit(0)
     }
-
     const buf = __APP_BUF__.subarray(14, infoListLength + 14)
     let fileCount = buf.readUInt32BE(0);
     let fileList = [], off = 4;
@@ -53,68 +41,59 @@ export abstract class UnpackWxapkg extends DecompilationBase{
       off += 4;
       fileList.push(info);
     }
+    if (!fileList.length) {
+      printLog(colors.red('\u274C  未成功解压小程序包.'))
+      process.exit(0)
+    }
     return fileList
   }
 
-  /** 保存该包中的所有文件 */
-  public async unpackWxapkg() {
-    const __APP_BUF__ = fs.readFileSync(this.packPath)
-    const fileList = this.genFileList(__APP_BUF__)
-    this.fileList.splice(0, this.fileList.length, ...fileList)
-    this.packType = 'sub'
-    this.appType = 'app'
-    const subPackRootPath = findCommonRoot(this.fileList.map(item => item.name))
-    if (subPackRootPath) {
-      this.pathInfo.setPackRootPath(subPackRootPath)
+  /** 
+   * 解析并保存该包中的所有文件 
+   * 返回获取该包各种信息 和 路径的操作对象
+   * */
+  public static async unpackWxapkg(inputPath: string, outputPath: string): Promise<UnPackInfo> {
+    const __APP_BUF__ = fs.readFileSync(inputPath)
+    const fileList = []
+    fileList.splice(0, fileList.length, ...UnpackWxapkg.genFileList(__APP_BUF__))
+    const pathInfo = getPathResolveInfo(outputPath) // 这个后面在解压完包的时候会进行分包路径重置,并永远指向分包
+    const outputPathInfo = getPathResolveInfo(outputPath) // 这个永远指向主包
+    let packType: MiniPackType = 'sub'
+    let appType: MiniAppType = 'app'
+    let subPackRootPath = findCommonRoot(fileList.map(item => item.name))
+    if (subPackRootPath) { // 重定向到子包目录
+      pathInfo.setPackRootPath(subPackRootPath)
     }
-    for (let info of this.fileList) {
+    for (let info of fileList) {
       const fileName = info.name.startsWith("/") ? info.name.slice(1) : info.name
       const data = __APP_BUF__.subarray(info.off, info.off + info.size)
       /*------------------------------------------------*/
-      const subRootPath = this.pathInfo.outputResolve(fileName)
-      DecompilationBase.saveFile(subRootPath, data)
+      const subRootPath = pathInfo.outputResolve(fileName)
+      saveLocalFile(subRootPath, data)
       /*------------------------------------------------*/
     }
-    const appConfigJsonString = DecompilationBase.readFile(this.pathInfo.appConfigJsonPath)
+    const appConfigJsonString = readLocalFile(pathInfo.appConfigJsonPath)
     if (appConfigJsonString) {  // 独立分包也拥有自己的 app-config
       const appConfig: Record<any, any> = JSON.parse(appConfigJsonString)
       const foundThatSubPackages = (appConfig.subPackages || []).find((sub: any) => sub.root === `${subPackRootPath}/`)
       if (!foundThatSubPackages) {
-        this.packType = 'main'
+        packType = 'main'
       } else if (typeof foundThatSubPackages === 'object' && foundThatSubPackages['independent']) {
-        this.packType = 'independent'
+        packType = 'independent'
       }
     }
-    if (fs.existsSync(this.outputPathInfo.gameJsPath)) {
-      this.appType = 'game'
+    if (fs.existsSync(outputPathInfo.gameJsPath)) {
+      appType = 'game'
     }
-    printLog(`\n \u25B6 解小程序压缩包成功! 文件总数: ${colors.green(this.fileList.length)}`, {isStart: true})
-  }
-
-  public getPackCodeInfo(pathInfo: ReturnType<typeof getPathInfo>): CodeInfo{
-    function readFile(path: string) {
-      if (!path) return ''
-      const content = DecompilationMicroApp.readFile(path)
-      return content.length > 100 ? content : ''
-    }
-
-    let pageFrameHtmlCode = readFile(pathInfo.pageFrameHtmlPath)
-    if (pageFrameHtmlCode) {
-      const $ = cheerio.load(pageFrameHtmlCode);
-      pageFrameHtmlCode = $('script').text()
-    }
-    const appServiceCode = readFile(pathInfo.appServicePath)
-    const appServiceAppCode = readFile(pathInfo.appServiceAppPath)
+    printLog(`\n \u25B6 解小程序压缩包成功! 文件总数: ${colors.green(fileList.length)}`, {isStart: true})
     return {
-      appConfigJson: readFile(pathInfo.appConfigJsonPath),
-      appWxss: readFile(pathInfo.appWxssPath),
-      appService: appServiceCode,
-      appServiceApp: appServiceAppCode,
-      pageFrame: readFile(pathInfo.pageFramePath),
-      workers: readFile(pathInfo.workersPath),
-      pageFrameHtml: pageFrameHtmlCode,
-      gameJs: readFile(pathInfo.gameJsPath),
-      gameJson: readFile(pathInfo.gameJsonPath),
+      appType,
+      packType,
+      subPackRootPath,
+      pathInfo,
+      outputPathInfo,
+      inputPath,
+      outputPath,
     }
   }
 }

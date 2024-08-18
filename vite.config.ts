@@ -64,6 +64,7 @@ export default defineConfig(  {
   plugins: [
     copy({
       targets: [
+        // 复制内置 polyfill
         { src: 'src/polyfill', dest: 'dist' },
       ]
     }),

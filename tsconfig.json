@@ -26,13 +26,16 @@
     "moduleResolution": "node",
     "importHelpers": true,
     "paths": {
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
   "compileOnSave": false,
   "include": [
     "src",
     "test",
-    "typings",
+    "typings"
   ],
   "exclude": [
     "dist",

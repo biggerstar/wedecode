@@ -1,4 +1,4 @@
-import {DecompilationBase} from "../interface/DecompilationBase";
+import {createVM} from "./createVM";
 
 function restoreSingle(ops: any, withScope = false) {
   if (typeof ops == "undefined") return "";
@@ -252,7 +252,7 @@ function catchZ(code: string, cb: Function) {
   // console.log(allGwxFunctionMatch)
   const allFunctionMap = {}
   const z = {}
-  const vm = DecompilationBase.createVM({
+  const vm = createVM({
     sandbox: {__WXML_GLOBAL__: {ops_cached: {}}}
   })
   if (allGwxFunctionMatch) {
