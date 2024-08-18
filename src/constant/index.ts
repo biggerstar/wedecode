@@ -17,5 +17,5 @@ export const removeList = [
   'page-frame.js',
   'webview.app.js',
   'common.app.js',
-  'plugin.json',
+  // 'plugin.json',
 ]

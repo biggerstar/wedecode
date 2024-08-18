@@ -7,8 +7,8 @@ import {removeList} from "@/constant";
 import {createVM} from "@/utils/createVM";
 import {deleteLocalFile, readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {
+  AppCodeInfo,
   AppTypeMapping,
-  CodeInfo,
   MiniAppType,
   MiniPackType,
   PackTypeMapping,
@@ -22,8 +22,6 @@ export class DecompilationBase {
   public outputPathInfo: PathResolveInfo
   public packPath: string
   public packType: MiniPackType
-  public codeInfo: CodeInfo
-  public rootCodeInfo: CodeInfo
   public appType: MiniAppType
   public ployFill: PloyFill
 
@@ -33,7 +31,6 @@ export class DecompilationBase {
     this.packPath = packInfo.inputPath
     this.packType = packInfo.packType
     this.appType = packInfo.appType
-    this.codeInfo = {} as CodeInfo
     this.ployFill = new PloyFill(this.packPath)
   }
 

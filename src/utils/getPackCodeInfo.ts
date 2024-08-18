@@ -1,11 +1,11 @@
 import * as cheerio from "cheerio";
-import {CodeInfo, PathResolveInfo} from "@/type";
+import {AppCodeInfo, GameCodeInfo, PathResolveInfo} from "@/type";
 import {readLocalFile} from "@/utils/fs-process";
 
 /**
  * 获取包中主要的一些代码文件
  * */
-export function getPackCodeInfo(pathInfo: PathResolveInfo): CodeInfo {
+export function getAppPackCodeInfo(pathInfo: PathResolveInfo): AppCodeInfo {
   function __readFile(path: string) {
     if (!path) return ''
     const content = readLocalFile(path)
@@ -27,6 +27,21 @@ export function getPackCodeInfo(pathInfo: PathResolveInfo): CodeInfo {
     pageFrame: __readFile(pathInfo.pageFramePath),
     workers: __readFile(pathInfo.workersPath),
     pageFrameHtml: pageFrameHtmlCode,
+  }
+}
+
+/**
+ * 获取包中主要的一些代码文件
+ * */
+export function getGamePackCodeInfo(pathInfo: PathResolveInfo): GameCodeInfo {
+  function __readFile(path: string) {
+    if (!path) return ''
+    const content = readLocalFile(path)
+    return content.length > 100 ? content : ''
+  }
+
+  return {
+    workers: __readFile(pathInfo.workersPath),
     gameJs: __readFile(pathInfo.gameJsPath),
     gameJson: __readFile(pathInfo.gameJsonPath),
   }

@@ -1,6 +1,6 @@
 import {getPathResolveInfo} from "@/utils/common";
 
-export type CodeInfo = {
+export type AppCodeInfo = {
   appConfigJson: string;
   appWxss: string;
   workers: string;
@@ -8,6 +8,10 @@ export type CodeInfo = {
   pageFrameHtml: string;
   appService: string;
   appServiceApp: string;
+}
+
+export type GameCodeInfo = {
+  workers: string;
   gameJs: string;
   gameJson: string;
 }

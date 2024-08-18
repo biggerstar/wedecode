@@ -30,6 +30,7 @@ export class Decompilation {
   }
 
   public async decompileAll() {
+    // TODO resolveAlias
     await this.unpackWxapkg()
     if (this.packInfo.appType === 'game') {
       // 小游戏
@@ -38,6 +39,7 @@ export class Decompilation {
     } else {
       // 小程序
       const decompilationApp = new DecompilationApp(this.packInfo)
+      decompilationApp.convertPlugin = true
       await decompilationApp.decompileAll()
     }
     printLog(`\n ✅  ${colors.bold(colors.green(PackTypeMapping[this.packInfo.packType] + '反编译结束!'))}`, {isEnd: true})

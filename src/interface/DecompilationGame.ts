@@ -3,13 +3,16 @@ import colors from "picocolors";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {createVM} from "@/utils/createVM";
 import {jsBeautify, printLog, removeVM2ExceptionLine, sleep} from "@/utils/common";
-import {UnPackInfo} from "@/type";
+import {GameCodeInfo, UnPackInfo} from "@/type";
 import {DecompilationBase} from "@/interface/DecompilationBase";
+import {getGamePackCodeInfo} from "@/utils/getPackCodeInfo";
 
 /**
  * 反编译工具类入口
  * */
 export class DecompilationGame extends DecompilationBase {
+  private codeInfo: GameCodeInfo
+  private rootCodeInfo: GameCodeInfo
   public wxsList: any[]
   public allRefComponentList: string[] = []
   public allSubPackagePages: string[] = []
@@ -35,7 +38,11 @@ export class DecompilationGame extends DecompilationBase {
    * 初始化小游戏所需环境和变量
    * */
   private async initGame() {
-    // pass
+    const loadInfo = {}
+    for (const name in this.codeInfo) {
+      loadInfo[name] = this.codeInfo[name].length
+    }
+    console.log(loadInfo)
   }
 
   /**
@@ -43,18 +50,20 @@ export class DecompilationGame extends DecompilationBase {
    * */
   private async decompileGameJSON() {
     if (this.packType !== 'main') return
+    this.codeInfo = getGamePackCodeInfo(this.pathInfo)
+    this.rootCodeInfo = getGamePackCodeInfo(this.pathInfo)
     await sleep(200)
-    const appConfigString = this.codeInfo.appConfigJson
-    const appConfig: Record<any, any> = JSON.parse(appConfigString)
-    Object.assign(appConfig, appConfig.global)
-    appConfig.plugins = {}
+    const gameConfigString = this.codeInfo.gameJson
+    const gameConfig: Record<any, any> = JSON.parse(gameConfigString)
+    Object.assign(gameConfig, gameConfig.global)
+    gameConfig.plugins = {}
     const deleteKeys = [
       'openDataContext',
     ]
-    deleteKeys.forEach(key => delete appConfig[key])
+    deleteKeys.forEach(key => delete gameConfig[key])
 
     const outputFileName = 'game.json'
-    const gameConfigSaveString = JSON.stringify(appConfig, null, 2)
+    const gameConfigSaveString = JSON.stringify(gameConfig, null, 2)
     saveLocalFile(this.pathInfo.outputResolve(outputFileName), gameConfigSaveString, {force: true})
     printLog(" Completed " + ` (${gameConfigSaveString.length}) \t` + colors.bold(colors.gray(this.pathInfo.outputResolve(outputFileName))))
     printLog(` \u25B6 反编译 ${outputFileName} 文件成功. \n`, {isStart: true})
