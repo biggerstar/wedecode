@@ -2,7 +2,6 @@ import {VM} from 'vm2'
 import fs from "node:fs";
 import colors from "picocolors";
 import path from "node:path";
-import {deepmerge} from "@biggerstar/deepmerge";
 import {glob} from "glob";
 import process from "node:process";
 import cssbeautify from "cssbeautify";
@@ -59,7 +58,6 @@ export class DecompilationApp extends DecompilationBase {
    * 为分包注入主包的环境代码, 自动分辨注入小程序或者小游戏代码
    * */
   private injectMainPackCode(vm: VM) {
-    if (this.packType === 'main') return
     let baseEnvCode1 = this.rootCodeInfo.appWxss || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
     let baseEnvCode2 = this.rootCodeInfo.appService || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
     try {
@@ -172,7 +170,7 @@ export class DecompilationApp extends DecompilationBase {
     Object.assign(appConfig, appConfig.global)
     delete appConfig.global
     delete appConfig.page
-    appConfig.plugins = {}
+    appConfig.plugins = {} // 插件从远程替换成本地编译使用
     if (appConfig.entryPagePath) appConfig.entryPagePath = appConfig.entryPagePath.replace('.html', '')
     if (appConfig.renderer) {
       appConfig.renderer = appConfig.renderer.default || 'webview'
@@ -267,8 +265,6 @@ export class DecompilationApp extends DecompilationBase {
    * 处理子包 json，只需要处理主包， 子包解压自带 json
    * */
   private async decompileAppPageJSON() {
-    if (this.packType !== 'main') return
-    const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)   // 黑名单模式: 直接操作 app-config.json 可以适配官方未来可能增加的配置字段
     const plugins: Record<string, Function> = {}
     const vm = createVM({
       sandbox: {
@@ -278,82 +274,24 @@ export class DecompilationApp extends DecompilationBase {
       }
     })
     vm.run(this.codeInfo.appService)
+    vm.run(this.codeInfo.appWxss)
     // 解析代码中的各个模块  json 配置
     this._injectPluginAppPageJSON(vm, plugins) // 要在解析 __wxAppCode__ 之前将插件的page.json配置注入 __wxAppCode__
     const __wxAppCode__ = vm.sandbox.__wxAppCode__;
-    // console.log(__wxAppCode__)
     for (const filePath in __wxAppCode__) {
-      let newFilePath = filePath
       if (path.extname(filePath) !== '.json') continue
+      let tempFilePath = filePath
+      const pageJson = __wxAppCode__[filePath]
+      pageJson.component = true
+      let realJsonConfigString = JSON.stringify(pageJson, null, 2)
       if (isPluginPath(filePath)) {
-        newFilePath = path.join(pluginDirRename[0], filePath.replace('plugin-private:/', ''))
+        tempFilePath = path.join(pluginDirRename[0], filePath.replace('plugin-private://', ''))
+        return
       }
-      let htmlName = replaceExt(newFilePath, ".html")
-      if (typeof __wxAppCode__[filePath] === 'object') {
-        appConfig.page[htmlName] = appConfig.page[htmlName] || {}
-        if (!appConfig.page[htmlName].window) appConfig.page[htmlName].window = {}
-        deepmerge(appConfig.page[htmlName].window, __wxAppCode__[filePath], {safe: false})
-      }
-    }
-    // 解析 app-config.json 中的各个模块配置
-    for (let pageHtmlPath in appConfig.page) {
-      // console.log(pageHtmlPath)
-      const pageJsonConfig = appConfig.page[pageHtmlPath]
-      const pageJsonPath = replaceExt(pageHtmlPath, ".json")
-      const realJsonConfig: Record<any, any> = pageJsonConfig.window || {}
-      realJsonConfig.backgroundColorTop = realJsonConfig.backgroundTopColor
-      const deleteKeys = [
-        'enableFSTCollect',
-        'enableFSPCollect',
-        'fstIgnoredClassNames',
-        'enableFSPImageCollect',
-        'hideCapsuleButtons',
-        'rendererType',
-        'widgetBackgroundColor',
-        'enablePageScroll',
-        'backgroundTopColor',
-        'enableBeforeUnload',
-        'alipayStyleIsolation',
-        'fstContainerId',
-        '__warning__',
-        'sdkVersionEnd',
-        'window',
-        'initialRenderingSnapshot',
-      ]
-      deleteKeys.forEach(key => delete realJsonConfig[key])
-      if (realJsonConfig.rendererOptions?.['skyline']) {
-        delete realJsonConfig.rendererOptions['skyline']['disableABTest']
-        delete realJsonConfig.rendererOptions['skyline']['sdkVersionBegin']
-        delete realJsonConfig.rendererOptions['skyline']['sdkVersionEnd']
-      }
-      const oldFileJson = readLocalFile(this.pathInfo.outputResolve(pageJsonPath))
-      if (oldFileJson) {
-        deepmerge(realJsonConfig, JSON.parse(oldFileJson))
-      }
-      realJsonConfig.component = true
-      if (realJsonConfig.renderer === 'skyline') {
-        realJsonConfig.componentFramework = realJsonConfig.componentFramework || "glass-easel"
-      }
-      delete realJsonConfig.navigationStyle
-      let realJsonConfigString = JSON.stringify(realJsonConfig, null, 2)
-      // 将 usingComponents 和 componentGenerics 合并一起处理
-      const usingComponents = {
-        ...realJsonConfig?.usingComponents || {},
-        ...realJsonConfig?.componentGenerics || {}
-      } || {}
-      for (const compName in usingComponents) {
-        let refCompInfo = usingComponents[compName]
-        let refCompPath = ''
-        if (typeof refCompInfo === 'object') refCompPath = refCompInfo.default
-        else if (typeof refCompInfo === 'string') refCompPath = refCompInfo
-        else if (typeof refCompInfo === 'boolean') continue
-        else continue
-        const compRealPath = path.join(path.dirname(pageJsonPath), refCompPath)
-        if (this.allUsingComponents.includes(compRealPath)) continue
-        this.allUsingComponents.push(compRealPath)
-      }
-      printLog(" Completed " + ` (${realJsonConfigString.length}) \t` + colors.bold(colors.gray(pageJsonPath)))
-      saveLocalFile(this.pathInfo.outputResolve(pageJsonPath), realJsonConfigString)
+      const jsonOutputPath = tempFilePath
+      // console.log(jsonOutputPath)
+      printLog(" Completed " + ` (${realJsonConfigString.length}) \t` + colors.bold(colors.gray(jsonOutputPath)))
+      saveLocalFile(this.pathInfo.outputResolve(jsonOutputPath), realJsonConfigString, {force: true})
     }
     printLog(` \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
   }
@@ -411,12 +349,11 @@ export class DecompilationApp extends DecompilationBase {
         plugins[pluginName] = pluginFunc
       },
     }
-    const vm = createVM({
-      sandbox: sandbox
-    })
-    if (this.codeInfo.appService) {
+    let appServiceCode = this.codeInfo.appService
+    if (appServiceCode) {
+      const vm = createVM()
       this.injectMainPackCode(vm)
-      let appServiceCode = this.codeInfo.appService
+      Object.assign(vm.sandbox, sandbox) // 将沙箱函数替换回来， 下方同理
       appServiceCode = appServiceCode
         .replaceAll('=__webnode__.define;', ';')
         .replaceAll('=__webnode__.require;', ';')
@@ -440,7 +377,10 @@ export class DecompilationApp extends DecompilationBase {
     for (const pluginName in plugins) {
       const appid = pluginName.replace('plugin://', '')
       pluginDefine = function (name: string, func: string) {
-        const pluginPath = _this.pathInfo.resolve(`${pluginDirRename[0]}/${appid}/${name}`)
+        const pluginPath = path.relative(
+          _this.pathInfo.outputPath,
+          _this.pathInfo.resolve(`${pluginDirRename[0]}/${appid}/${name}`)
+        )
         mainEnvDefine(pluginPath, func)
       }
       const pluginFunc = plugins[pluginName]
@@ -461,7 +401,6 @@ export class DecompilationApp extends DecompilationBase {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code.trim()) return
     const vm = createVM()
-    this.injectMainPackCode(vm)
     vm.run(code)
     const __wxAppCode__ = vm.sandbox['__wxAppCode__']
     if (!__wxAppCode__) return
@@ -473,9 +412,13 @@ export class DecompilationApp extends DecompilationBase {
       __wxAppCode__[filepath]()
       const lastStyleEl = children[children.length - 1]
       const attr_wxss_path = lastStyleEl.getAttribute('wxss:path')
-      if (!attr_wxss_path) return
+      if (!attr_wxss_path) continue
       if (isPluginPath(filepath)) { // 解析插件，重定向到插件所在路径
-        filepath = filepath.replace('plugin-private://', `${pluginDirRename[0]}/`)
+        // 将插件路径重定向到主包 或者 分包所在路径
+        filepath = filepath.replace(
+          'plugin-private://', 
+          `${this.pathInfo.packRootPath}/${pluginDirRename[0]}/`
+        )
         lastStyleEl.setAttribute('wxss:path', filepath)
       }
     }
@@ -645,8 +588,8 @@ export class DecompilationApp extends DecompilationBase {
     await this.decompileAppWXSS()
     await this.decompileAppWXML()
     await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行 
-    await this.generateDefaultAppFiles()
     /* ----------------------------------- */
+    await this.generateDefaultAppFiles()
     await this.decompileAppWorker()
     await this.generaProjectConfigFiles()
     await this.removeCache()

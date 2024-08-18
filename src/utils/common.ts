@@ -91,6 +91,9 @@ export function limitPush(arr: any[], data: any, limit = 10) {
 }
 
 const openStreamLog = false
+const excludesLogMatch = [
+  'Completed'
+]
 export function printLog(log: string, opt: {
   isStart?: boolean,
   isEnd?: boolean,
@@ -102,6 +105,7 @@ export function printLog(log: string, opt: {
   nativeOnly?: boolean,
   interceptor?: (log: string) => any
 } = {}) {
+  if (excludesLogMatch.some(item => log.includes(item))) return;
   if (!openStreamLog){
     console.log(log)
     return;
