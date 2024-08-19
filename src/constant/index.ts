@@ -19,3 +19,7 @@ export const removeList = [
   'common.app.js',
   // 'plugin.json',
 ]
+
+export const pageExcludeKeys = [
+  'navigateToMiniProgramAppIdList',
+]

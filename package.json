@@ -20,7 +20,7 @@
     "dev:unpack:file:nooverwrite": "DEV=true wedecode -o OUTPUT pkg/issues2/_pagesA_.wxapkg",
     "dev:unpack:dir": "DEV=true wedecode -ow true -o OUTPUT pkg/issues8",
     "dev:unpack:subPack": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
-    "preview:unpack": "wedecode pkg/old/__old__.wxapkg"
+    "preview:unpack": "wedecode -ow true -o OUTPUT pkg/issues8"
   },
   "repository": {
     "type": "git",

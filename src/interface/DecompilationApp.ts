@@ -8,7 +8,7 @@ import cssbeautify from "cssbeautify";
 import {DecompilationBase} from "./DecompilationBase";
 import {createVM} from "@/utils/createVM";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
-import {pluginDirRename} from "@/constant";
+import {pageExcludeKeys, pluginDirRename} from "@/constant";
 import {getZ} from "@/utils/getZ";
 import {tryDecompileWxml} from "@/utils/decompileWxml";
 import {AppCodeInfo, ModuleDefine, UnPackInfo} from "@/type";
@@ -29,8 +29,6 @@ import {JSDOM} from "jsdom";
  * */
 export class DecompilationApp extends DecompilationBase {
   private codeInfo: AppCodeInfo
-  private rootCodeInfo: AppCodeInfo
-  private allRefComponentList: string[] = []
   private allSubPackagePages: string[] = []
   /**
    * 不包含插件的所有各种的模块定义
@@ -52,10 +50,10 @@ export class DecompilationApp extends DecompilationBase {
     moduleName?: string,
     templateList?: string[]
   }[]> = {}
+
   /**
    * 所有在 page.json 中被引用的组件
    * */
-  private allUsingComponents = []
 
   public constructor(packInfo: UnPackInfo) {
     super(packInfo);
@@ -64,20 +62,20 @@ export class DecompilationApp extends DecompilationBase {
   /**
    * 为分包注入主包的环境代码, 自动分辨注入小程序或者小游戏代码
    * */
-  private injectMainPackCode(vm: VM) {
-    let baseEnvCode1 = this.rootCodeInfo.appWxss || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
-    let baseEnvCode2 = this.rootCodeInfo.appService || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
-    try {
-      if (baseEnvCode1) vm.run(baseEnvCode1)
-    } catch (e) {
-    }
-    try {
-      if (baseEnvCode2) vm.run(baseEnvCode2)
-    } catch (e) {
-
-    }
-    vm.sandbox.$gwx = vm.sandbox.$gwx || (() => void 0)
-  }
+  // private injectMainPackCode(vm: VM) {
+  //   let baseEnvCode1 = this.rootCodeInfo.appWxss || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
+  //   let baseEnvCode2 = this.rootCodeInfo.appService || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
+  //   try {
+  //     if (baseEnvCode1) vm.run(baseEnvCode1)
+  //   } catch (e) {
+  //   }
+  //   try {
+  //     if (baseEnvCode2) vm.run(baseEnvCode2)
+  //   } catch (e) {
+  //
+  //   }
+  //   vm.sandbox.$gwx = vm.sandbox.$gwx || (() => void 0)
+  // }
 
   /**
    * 初始化, 所有后续反编译且不会被动态改变的所需要的信息都在这里加载
@@ -85,7 +83,7 @@ export class DecompilationApp extends DecompilationBase {
    * */
   private async initApp() {
     this.codeInfo = getAppPackCodeInfo(this.pathInfo)
-    this.rootCodeInfo = getAppPackCodeInfo(this.outputPathInfo)
+
     //  用户 polyfill
     const loadInfo = {}
     for (const name in this.codeInfo) {
@@ -101,16 +99,20 @@ export class DecompilationApp extends DecompilationBase {
       return
     }
     const vm = createVM()
-    code = code.replaceAll('var e_={}', `var e_ = {}; window.DecompilationModules = global;`)
-    code = code.replace(
-      'var nom={};return function(n){',
-      'var nom={}; window.DecompilationWXS = nnm; return function(n){ var keepPath = n; '
-    ).replace(
-      'return function(){if(!nnm[n])',
-      'return function(){ if (window.isHookReady){ return keepPath }; if(!nnm[n])'
-    )
+    code = code
+      .replaceAll(
+        'var e_={}',
+        `var e_ = {}; window.DecompilationModules = global;`
+      )
+      .replace(
+        'var nom={};return function(n){',
+        'var nom={}; window.DecompilationWXS = nnm; return function(n){ var keepPath = n; '
+      )
+      .replace(
+        'return function(){if(!nnm[n])',
+        'return function(){ if (window.isHookReady){ return keepPath }; if(!nnm[n])'
+      )
     code = code + ';window.isHookReady = true'
-    this.injectMainPackCode(vm)
     vm.run(code)
     this.DecompilationModules = {...vm.sandbox.window['DecompilationModules']} || {}
     this.DecompilationWXS = {...vm.sandbox.window['DecompilationWXS']} || {}
@@ -149,17 +151,6 @@ export class DecompilationApp extends DecompilationBase {
 
     if (this.packType === 'main') {
       const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)
-      const allPageJsonConfig = appConfig.page
-      this.allRefComponentList = arrayDeduplication(Object.keys(allPageJsonConfig || {})
-        .map((pagePath: any) => {
-          const pageInfo = allPageJsonConfig[pagePath]
-          const allRefComponents: string[] = Object.values(pageInfo?.window?.['usingComponents'] || {})
-          return allRefComponents.map(compRelativePath => {
-            return `.${path.resolve(path.relative(this.pathInfo.resolve(pagePath), compRelativePath))}`
-          })
-        })
-        .flat(2))
-
       this.allSubPackagePages = (appConfig.subPackages || [])
         .map((subPackage: any) => appConfig.pages.filter((pagePath: string) => pagePath.startsWith(subPackage.root)))
         .flat(2)
@@ -177,9 +168,6 @@ export class DecompilationApp extends DecompilationBase {
     Object.assign(appConfig, appConfig.global)
     delete appConfig.global
     delete appConfig.page
-    if (this.convertPlugin) {
-      appConfig.plugins = {} // 插件从远程替换成本地编译使用
-    }
     if (appConfig.entryPagePath) appConfig.entryPagePath = appConfig.entryPagePath.replace('.html', '')
     if (appConfig.renderer) {
       appConfig.renderer = appConfig.renderer.default || 'webview'
@@ -262,6 +250,10 @@ export class DecompilationApp extends DecompilationBase {
         return result
       })
     }
+    if (this.convertPlugin) {
+      appConfig.plugins = {} // 插件从远程替换成本地编译使用
+    }
+    pageExcludeKeys.forEach(key => delete appConfig[key])
     const outputFileName = 'app.json'
     const appConfigSaveString = JSON
       .stringify(appConfig, null, 2)
@@ -274,7 +266,7 @@ export class DecompilationApp extends DecompilationBase {
   /**
    * 处理子包 json，只需要处理主包， 子包解压自带 json
    * */
-  private async decompileAppPageJSON() {
+  private async decompileAllJSON() {
     const plugins: Record<string, Function> = {}
     const vm = createVM({
       sandbox: {
@@ -284,7 +276,6 @@ export class DecompilationApp extends DecompilationBase {
       }
     })
     vm.run(this.codeInfo.appService)
-    vm.run(this.codeInfo.appWxss)
     // 解析代码中的各个模块  json 配置
     this._injectPluginAppPageJSON(vm, plugins) // 要在解析 __wxAppCode__ 之前将插件的page.json配置注入 __wxAppCode__
     const __wxAppCode__ = Object.assign(vm.sandbox.__wxAppCode__, vm.sandbox.global?.__wxAppCode__ || {});
@@ -375,7 +366,6 @@ export class DecompilationApp extends DecompilationBase {
     let appServiceCode = this.codeInfo.appService
     if (appServiceCode) {
       const vm = createVM()
-      this.injectMainPackCode(vm)
       Object.assign(vm.sandbox, sandbox) // 将沙箱函数替换回来， 下方同理
       appServiceCode = appServiceCode
         .replaceAll('=__webnode__.define;', ';')
@@ -414,6 +404,78 @@ export class DecompilationApp extends DecompilationBase {
       })
       // console.log(pluginName, getParameterNames(pluginFunc));
       pluginFunc.apply(sandBox.window, paramValueList)
+    }
+  }
+
+  private _setCssToHead(arr: any[], _invalid: any, opt?: { path: string, suffix?: string }) {
+    if (typeof opt === 'object' && opt.path && Array.isArray(arr)) {
+      let cssPath = opt.path
+      const isPlugin = isPluginPath(cssPath)
+      if (isPlugin) { // 解析插件，重定向到插件所在路径
+        // 将插件路径重定向到主包 或者 分包所在路径
+        cssPath = cssPath.replace(
+          'plugin-private://',
+          `${this.pathInfo.packRootPath}/${pluginDirRename[0]}/`
+        )
+      }
+      arr = arr.map((item) => {
+        if (Array.isArray(item)) {
+          const type = item[0]
+          if (type === 0) {
+            return typeof item[1] === 'number' ? `${item[1]}rpx` : ''
+          } else if (type === 2) {
+            if (typeof item[1] === 'string') {
+              const relativePath = path.join(path.relative(path.dirname(cssPath), this.pathInfo.outputPath), item[1])
+              // console.log(relativePath)
+              return `@import "${relativePath}";`
+            }
+            return ''
+          } else if (type === 1) {
+            return opt.suffix || ''
+          } else {
+            return item[1]
+          }
+        }
+        return item
+      })
+      saveLocalFile(this.pathInfo.outputResolve(cssPath), cssbeautify(arr.join('')))
+    }
+    return () => void 0
+  }
+
+  private async decompileAppWXSSWithRpx() {
+    const reg = /setCssToHead\(.+?}\)\(\)/g
+    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    code = code.replaceAll('return rewritor;', 'return ()=> ({file, info});')
+    code = code.replaceAll('__COMMON_STYLESHEETS__[', '__COMMON_STYLESHEETS_HOOK__[')
+    // code = code.replaceAll('var setCssToHead', 'var __setCssToHead__')
+    const vm = createVM({
+      sandbox: {__COMMON_STYLESHEETS_HOOK__: {}}
+    })
+    vm.run(code)
+    /* 拦截直接执行的全局 css */
+    let lastMatch = null
+    do {
+      lastMatch = reg.exec(code)
+      if (!lastMatch) break
+      const cssSeedCode = lastMatch[0]
+      const func = new Function('setCssToHead', cssSeedCode)
+      func(this._setCssToHead.bind(this))
+    } while (lastMatch)
+
+    /* 拦截组件的 css */
+    const __wxAppCode__ = vm.sandbox['__wxAppCode__']
+    for (let cssPath in __wxAppCode__) {
+      if (path.extname(cssPath) !== '.wxss') continue
+      const {file: astList, info = {}} = __wxAppCode__[cssPath]()
+      this._setCssToHead(astList, null, {path: cssPath, suffix: info.suffix})
+    }
+    /* 拦截 @import 引入的的公共 css */
+    const __COMMON_STYLESHEETS_HOOK__ = vm.sandbox.__COMMON_STYLESHEETS_HOOK__ || {}
+    for (const cssPath in __COMMON_STYLESHEETS_HOOK__) {
+      const wxssOutputPath = path.relative(this.pathInfo.outputPath, this.pathInfo.resolve(cssPath))
+      const astList = __COMMON_STYLESHEETS_HOOK__[cssPath]
+      this._setCssToHead(astList, null, {path: wxssOutputPath})
     }
   }
 
@@ -466,11 +528,18 @@ export class DecompilationApp extends DecompilationBase {
     const decompilationWXS = this.DecompilationWXS
     const funcHeader = 'nv_module={nv_exports:{}};';
     const funcEnd = 'return nv_module.nv_exports;}';
-    const matchReturnReg = /return\s*\(\{(.|\r|\t|\n)*?\}\)/
+    const matchReturnReg = /return\s*\(\{(.|\r|\t|\n)*?}\)/
+    const wxsCodeRequireReg = /require\(.+?\(\);/g
+    const resetWxsRequirePath = (p: string) => p.replaceAll('p_./', './').replaceAll('m_./', './')
 
     function functionToWXS(wxsFunc: Function) {
       let code = wxsFunc.toString()
       code = code.slice(code.indexOf(funcHeader) + funcHeader.length, code.lastIndexOf(funcEnd)).replaceAll('nv_', '')
+      code = code.replace(wxsCodeRequireReg, (matchString: string) => {
+        const newRequire = resetWxsRequirePath(matchString).replace('()', '')
+        // console.log(newRequire)
+        return newRequire
+      })
       const matchInfo = matchReturnReg.exec(code)
       const matchList = []
       if (matchInfo) {
@@ -487,11 +556,13 @@ export class DecompilationApp extends DecompilationBase {
       return jsBeautify(code)
     }
 
+    // console.log(decompilationWXS)
     for (const wxsPath in decompilationWXS) {   // 处理并保存 wxs 文件
       if (path.extname(wxsPath) !== '.wxs') continue
       const wxsFunc = decompilationWXS[wxsPath]
-      const wxsOutputShortPath = wxsPath.replace('p_./', './').replace('m_./', './')
+      const wxsOutputShortPath = resetWxsRequirePath(wxsPath)
       const wxsString = functionToWXS(wxsFunc)
+      console.log(wxsOutputShortPath)
       saveLocalFile(this.pathInfo.outputResolve(wxsOutputShortPath), wxsString)
       printLog(" Completed " + ` (${wxsString.length}) \t` + colors.bold(colors.gray(wxsPath)))
     }
@@ -510,6 +581,7 @@ export class DecompilationApp extends DecompilationBase {
         }
       })
     }
+
     for (const wxmlRelativePath in this.wxsRefInfo) {
       const wxsInPageList = this.wxsRefInfo[wxmlRelativePath]
       wxsInPageList.forEach(item => {
@@ -535,7 +607,6 @@ export class DecompilationApp extends DecompilationBase {
       xPool = [regRes[1]].toString().split(',').map(str => str.replaceAll("'", ''))
     }
     const vm = createVM()
-    this.injectMainPackCode(vm)
     vm.run(code)
     getZ(code, (z: Record<string, any[]>) => {
       const {entrys, defines} = this.DecompilationModules
@@ -596,9 +667,7 @@ export class DecompilationApp extends DecompilationBase {
     })
     const allPage = allPageAbsolutePathList.map(str => str.replace(this.pathInfo.packRootPath, '.'))
     const allPageAndComp = allPage
-      .concat(this.allRefComponentList)
       .concat(this.allSubPackagePages)
-      .concat(this.allUsingComponents)
     // console.log(this.allSubPackagePages)
 
     for (let pagePath of allPageAndComp) {
@@ -626,17 +695,24 @@ export class DecompilationApp extends DecompilationBase {
     super.decompileAll()
     /* 开始编译 */
     await this.initApp()
-    await this.decompileAppJSON()
-    await this.decompileAppPageJSON()
+    await this.decompileAllJSON()
+    await this.decompileAppJSON() // 在 pageJson 解析后， 之后使用经过处理的 app.json 如果存在 app.json 则覆盖原来的 json
     await this.decompileAppJS()
-    await this.decompileAppWXSS()
+    try {
+      await this.decompileAppWXSSWithRpx() // 优先 rpx 单位解析 
+    } catch (e) {
+      console.log(e.message)
+      await this.decompileAppWXSS()  // 降级方案，使用 px 解析
+    }
     await this.decompileAppWXML()
     await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行 
     /* ----------------------------------- */
     await this.generateDefaultAppFiles()
     await this.decompileAppWorker()
     await this.generaProjectConfigFiles()
-    await this.removeCache()
+    if (!process.env.DEV) {
+      await this.removeCache()
+    }
   }
 }
 

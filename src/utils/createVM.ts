@@ -18,6 +18,8 @@ export function createVM(vmOptions: VMOptions = {}) {
   return new VM(deepmerge({
     sandbox: {
       ...createWxFakeDom(),
+      setInterval: ()=> null,
+      setTimeout: ()=> null,
       window: vm_window,
       location: dom.window.location,
       navigator: vm_navigator,

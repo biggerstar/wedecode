@@ -6,6 +6,7 @@ import {jsBeautify, printLog, removeVM2ExceptionLine, sleep} from "@/utils/commo
 import {GameCodeInfo, UnPackInfo} from "@/type";
 import {DecompilationBase} from "@/interface/DecompilationBase";
 import {getGamePackCodeInfo} from "@/utils/getPackCodeInfo";
+import process from "node:process";
 
 /**
  * 反编译工具类入口
@@ -131,7 +132,9 @@ export class DecompilationGame extends DecompilationBase {
     /* ----------------------------------- */
     await this.decompileAppWorker()
     await this.generaProjectConfigFiles()
-    await this.removeCache()
+    if (!process.env.DEV) {
+      await this.removeCache()
+    }
   }
 }
 

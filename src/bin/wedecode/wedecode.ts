@@ -10,6 +10,7 @@ import checkForUpdate from "update-check";
 import figlet from "figlet";
 import {Decompilation} from "@/Decompilation";
 import {checkExistsWithFilePath, clearScreen, printLog, sleep} from "@/utils/common";
+import process from "node:process";
 
 /**
  * @param {String} inputPath   wxapkg包路径
@@ -99,6 +100,7 @@ program
       await singlePackMode(config.inputPath, config.outputPath)
     }
     printLog(` ✅  ${colors.bold(colors.green('编译流程结束!'))}`, {isEnd: true})
+    process.exit(0)
   })
 
 program.parse();

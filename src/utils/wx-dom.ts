@@ -31,6 +31,7 @@ export function createWxFakeDom() {
     getCurrentPages: () => [],
     requireMiniProgram: function () {
     },
+    $gwx: () => void 0,
     WXWebAssembly: {},
     __wxCodeSpace__: {},
     wx: {
