@@ -6,7 +6,7 @@ export const pluginDirRename = ['__plugin__', 'plugin_']
 /**
  * 清理缓存时移除文件的命中关键词，需要保证唯一特殊性
  * */
-export const removeList = [
+export const removeAppFileList = [
   // 'app-config.json',
   'page-frame.html',
   'app-wxss.js',
@@ -20,6 +20,17 @@ export const removeList = [
   // 'plugin.json',
 ]
 
-export const pageExcludeKeys = [
+export const removeGameFileList = [
+  // 'app-config.json',
+  // 'game.js',
+  'subContext.js',
+  'worker.js',
+]
+
+export const appJsonExcludeKeys = [
   'navigateToMiniProgramAppIdList',
+]
+
+export const GameJsonExcludeKeys = [
+  'openDataContext',
 ]

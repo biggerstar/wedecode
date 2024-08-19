@@ -3,7 +3,7 @@ import process from "node:process";
 import {stdout as slog} from 'single-line-log'
 import fs from "node:fs";
 import colors from "picocolors";
-import JS from 'js-beautify'
+import JS, {js} from 'js-beautify'
 
 export function getPathResolveInfo(outputDir: string) {
   let _packRootPath = outputDir
@@ -55,8 +55,8 @@ export function getPathResolveInfo(outputDir: string) {
     get gameJsPath() {
       return resolve('game.js')
     },
-    get gameJsonPath() {
-      return resolve('game.json')
+    get subContextJsPath() {
+      return resolve('subContext.js')
     },
   }
 }
@@ -92,7 +92,7 @@ export function limitPush(arr: any[], data: any, limit = 10) {
 
 const openStreamLog = false
 const excludesLogMatch = [
-  'Completed'
+  // 'Completed'
 ]
 export function printLog(log: string, opt: {
   isStart?: boolean,

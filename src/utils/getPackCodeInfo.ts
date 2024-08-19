@@ -43,6 +43,7 @@ export function getGamePackCodeInfo(pathInfo: PathResolveInfo): GameCodeInfo {
   return {
     workers: __readFile(pathInfo.workersPath),
     gameJs: __readFile(pathInfo.gameJsPath),
-    gameJson: __readFile(pathInfo.gameJsonPath),
+    appConfigJson: __readFile(pathInfo.appConfigJsonPath),
+    subContextJs: __readFile(pathInfo.subContextJsPath),
   }
 }

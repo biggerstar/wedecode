@@ -1,6 +1,6 @@
 {
   "name": "wedecode",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {
@@ -16,11 +16,10 @@
     "release:npm": "vite build && npm publish",
     "release:git": "vite build && git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
     "test:cmd": "wedecode",
-    "dev:unpack:file": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mini-game/_subpackages_common_.wxapkg",
-    "dev:unpack:file:nooverwrite": "DEV=true wedecode -o OUTPUT pkg/issues2/_pagesA_.wxapkg",
-    "dev:unpack:dir": "DEV=true wedecode -ow true -o OUTPUT pkg/issues8",
+    "dev:unpack:dir": "DEV=true wedecode -ow true -o OUTPUT pkg/issues8-sxd",
+    "dev:unpack:game-dir": "DEV=true wedecode -ow true -o OUTPUT-GAME pkg/mini-game",
     "dev:unpack:subPack": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
-    "preview:unpack": "wedecode -ow true -o OUTPUT pkg/issues8"
+    "preview:unpack": "wedecode -ow true -o OUTPUT pkg/issues8-sxd"
   },
   "repository": {
     "type": "git",

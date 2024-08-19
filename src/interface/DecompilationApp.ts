@@ -8,7 +8,7 @@ import cssbeautify from "cssbeautify";
 import {DecompilationBase} from "./DecompilationBase";
 import {createVM} from "@/utils/createVM";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
-import {pageExcludeKeys, pluginDirRename} from "@/constant";
+import {appJsonExcludeKeys, pluginDirRename} from "@/constant";
 import {getZ} from "@/utils/getZ";
 import {tryDecompileWxml} from "@/utils/decompileWxml";
 import {AppCodeInfo, ModuleDefine, UnPackInfo} from "@/type";
@@ -253,7 +253,7 @@ export class DecompilationApp extends DecompilationBase {
     if (this.convertPlugin) {
       appConfig.plugins = {} // 插件从远程替换成本地编译使用
     }
-    pageExcludeKeys.forEach(key => delete appConfig[key])
+    appJsonExcludeKeys.forEach(key => delete appConfig[key])
     const outputFileName = 'app.json'
     const appConfigSaveString = JSON
       .stringify(appConfig, null, 2)
@@ -319,45 +319,14 @@ export class DecompilationApp extends DecompilationBase {
     }
   }
 
-  public convertPluginPath(code: string) {
-    return code
-  }
-
   private async decompileAppJS() {
     const _this = this
     const plugins: Record<string, Function> = {}
     const sandbox = {
       require() {
       },
-      define(name: string, func: string) {
-        // console.log(name, func);
-        /* 看看是否有 polyfill,  有的话直接使用注入 polyfill */
-        const foundPloyfill = _this.ployFill.findPloyfill(name)
-        let resultCode: string = ''
-        if (foundPloyfill) {
-          resultCode = readLocalFile(foundPloyfill.fullPath)
-        } else {
-          let code = func.toString();
-          code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
-          if (code.startsWith('"use strict";')) {
-            code = code.replaceAll('"use strict";', '')
-          } else if (code.startsWith("'use strict';")) {
-            code = code.replaceAll(`'use strict';`, '')
-          } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
-            code = code.slice(25, -5);
-          }
-          code = code.replaceAll('require("@babel', 'require("./@babel')
-          resultCode = jsBeautify(code.trim());
-        }
-        if (resultCode.trim()) {
-          resultCode = _this.convertPluginPath(resultCode)
-          saveLocalFile(
-            _this.pathInfo.outputResolve(name),
-            removeVM2ExceptionLine(resultCode),
-            {force: true}
-          )
-          printLog(" Completed " + ` (${resultCode.length}) \t` + colors.bold(colors.gray(name)))
-        }
+      define(name: string, func: Function) {
+        _this._parseJsDefine(name, func)
       },
       definePlugin: function (pluginName: string, pluginFunc: Function) {
         plugins[pluginName] = pluginFunc

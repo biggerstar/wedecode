@@ -13,7 +13,8 @@ export type AppCodeInfo = {
 export type GameCodeInfo = {
   workers: string;
   gameJs: string;
-  gameJson: string;
+  appConfigJson: string;
+  subContextJs: string;
 }
 
 export type ModuleDefine = {

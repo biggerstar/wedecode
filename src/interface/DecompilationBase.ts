@@ -3,7 +3,7 @@ import path from "node:path";
 import {glob} from "glob";
 import fs from "node:fs";
 import {PloyFill} from "./PloyFill";
-import {removeList} from "@/constant";
+import {removeAppFileList, removeGameFileList} from "@/constant";
 import {createVM} from "@/utils/createVM";
 import {deleteLocalFile, readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {
@@ -15,7 +15,7 @@ import {
   PathResolveInfo,
   UnPackInfo
 } from "@/type";
-import {commonDir, printLog, sleep} from "@/utils/common";
+import {commonDir, jsBeautify, printLog, removeVM2ExceptionLine, sleep} from "@/utils/common";
 
 export class DecompilationBase {
   public pathInfo: PathResolveInfo
@@ -42,26 +42,16 @@ export class DecompilationBase {
     if (!fs.existsSync(this.pathInfo.workersPath)) {
       return
     }
-    if (!fs.existsSync(this.pathInfo.appJsonPath)) {
-      return
-    }
-    const appConfig: Record<any, any> = JSON.parse(readLocalFile(this.pathInfo.appJsonPath))
+    const _this = this
     let code = readLocalFile(this.pathInfo.workersPath)
-    let commPath: string = '';
     let vm = createVM({
       sandbox: {
-        define(name: string) {
-          name = path.dirname(name) + '/';
-          if (!commPath) commPath = name;
-          commPath = commonDir(commPath, name);
+        define(name: string, func: Function) {
+          _this._parseJsDefine(name, func)
         }
       }
     })
-    vm.run(code.slice(code.indexOf("define(")));
-    if (commPath.length > 0) commPath = commPath.slice(0, -1);
-    printLog(`Worker path:  ${commPath}`);
-    appConfig.workers = commPath
-    saveLocalFile(this.pathInfo.appJsonPath, JSON.stringify(appConfig, null, 2))
+    vm.run(code);
     printLog(` \u25B6 反编译 Worker 文件成功. \n`, {isStart: true})
   }
 
@@ -84,6 +74,7 @@ export class DecompilationBase {
   protected async removeCache() {
     await sleep(500)
     let cont = 0
+    const removeFileList = this.appType === 'game' ? removeGameFileList : removeAppFileList
     const absolutePackRootPath = this.pathInfo.outputResolve(this.pathInfo.packRootPath)
     const allFile = glob.globSync(`${absolutePackRootPath}/**/**{.js,.html,.json}`)
     allFile.forEach(filepath => {
@@ -94,7 +85,7 @@ export class DecompilationBase {
         cont++
         deleteLocalFile(filepath, {catch: true, force: true})
       }
-      if (removeList.includes(fileName)) {
+      if (removeFileList.includes(fileName)) {
         _deleteLocalFile()
       } else if (extname === '.html') {
         const feature = 'var __setCssStartTime__ = Date.now()'
@@ -118,4 +109,36 @@ export class DecompilationBase {
       isEnd: true,
     });
   }
+
+  protected _parseJsDefine(name: string, func: Function) {
+    if (path.extname(name) !== '.js') return
+    // console.log(name, func);
+    /* 看看是否有 polyfill,  有的话直接使用注入 polyfill */
+    const foundPloyfill = this.ployFill.findPloyfill(name)
+    let resultCode: string = ''
+    if (foundPloyfill) {
+      resultCode = readLocalFile(foundPloyfill.fullPath)
+    } else {
+      let code = func.toString();
+      code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
+      if (code.startsWith('"use strict";')) {
+        code = code.replaceAll('"use strict";', '')
+      } else if (code.startsWith("'use strict';")) {
+        code = code.replaceAll(`'use strict';`, '')
+      } else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) {
+        code = code.slice(25, -5);
+      }
+      code = code.replaceAll('require("@babel', 'require("./@babel')
+      resultCode = jsBeautify(code.trim());
+    }
+    if (resultCode.trim()) {
+      saveLocalFile(
+        this.pathInfo.outputResolve(name),
+        removeVM2ExceptionLine(resultCode),
+        {force: true}
+      )
+      printLog(" Completed " + ` (${resultCode.length}) \t` + colors.bold(colors.gray(name)))
+    }
+  }
+  
 }

@@ -30,6 +30,9 @@ export function createVM(vmOptions: VMOptions = {}) {
       global: {
         __wcc_version__: 'v0.5vv_20211229_syb_scopedata',
       },
+      System: {
+        register: () => void 0,
+      },
       __vd_version_info__: {},
       __wxAppCode__,
       __wxCodeSpace__: {
