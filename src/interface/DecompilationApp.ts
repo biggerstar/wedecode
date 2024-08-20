@@ -531,7 +531,7 @@ export class DecompilationApp extends DecompilationBase {
       const wxsFunc = decompilationWXS[wxsPath]
       const wxsOutputShortPath = resetWxsRequirePath(wxsPath)
       const wxsString = functionToWXS(wxsFunc)
-      console.log(wxsOutputShortPath)
+      // console.log(wxsOutputShortPath)
       saveLocalFile(this.pathInfo.outputResolve(wxsOutputShortPath), wxsString)
       printLog(" Completed " + ` (${wxsString.length}) \t` + colors.bold(colors.gray(wxsPath)))
     }

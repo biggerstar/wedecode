@@ -1,4 +1,8 @@
 /**
+ * 默认输出路径， 基于 inputPath 路径
+ * */
+export const DEFAULT_OUTPUT_PATH = '__OUTPUT__'
+/**
  * 插件目录统一重命名映射
  * */
 export const pluginDirRename = ['__plugin__', 'plugin_']

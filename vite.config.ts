@@ -30,6 +30,7 @@ const external = [
   'figlet',
   'figures',
   'update-check',
+  'open-file-explorer',
   '@biggerstar/inquirer-selectable-table',
 ]
 

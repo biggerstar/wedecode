@@ -5,6 +5,7 @@ import {PackTypeMapping, UnPackInfo} from "@/type";
 import {DecompilationApp} from "@/interface/DecompilationApp";
 import {DecompilationGame} from "@/interface/DecompilationGame";
 import {UnpackWxapkg} from "@/interface/UnpackWxapkg";
+import {DEFAULT_OUTPUT_PATH} from "@/constant";
 
 /**
  * 反编译工具类入口
@@ -15,12 +16,6 @@ export class Decompilation {
   public packInfo: UnPackInfo
 
   constructor(inputPath: string, outputPath?: string) {
-    if (path.extname(inputPath) !== '.wxapkg') {
-      console.log(colors.red('\u274C  文件夹下不存在 .wxapkg 包'), inputPath)
-      return
-    }
-    if (!outputPath) outputPath = path.resolve(path.dirname(inputPath), '__OUTPUT__') // 未指定输出目录则默认输出到同级目录
-    else outputPath = path.resolve(outputPath) // 解析用户自定义的输出目录
     this.packPath = inputPath
     this.outputPath = outputPath
   }

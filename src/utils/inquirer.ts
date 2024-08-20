@@ -1,46 +1,55 @@
 import inquirer from "inquirer";
 import path from "node:path";
-import {checkExistsWithFilePath} from "./common";
+import colors from "picocolors";
+import {checkExistsWithFilePath} from "@/bin/wedecode/common";
+import {DEFAULT_OUTPUT_PATH} from "@/constant";
+import {CacheClearEnum, OperationModeEnum} from "@/bin/wedecode/enum";
 
 const prompts = {
-  async default() {
+  async selectMode(){
     return inquirer['prompt'](
       [
-        // {
-        //   type: 'list',
-        //   message: '请选择反编译模式: ',
-        //   name: 'mode',
-        //   choices: [
-        //     '单包模式',
-        //     '分包模式',
-        //   ],
-        // },
         {
-          type: 'waitUserInput',
-          message: `wxapkg 文件' 或 '目录' 路径, 默认当前所在整个目录: `,
+          type: 'list',
+          message: `请选择操作模式 ?`,
+          name: 'selectMode',
+          choices: [
+            OperationModeEnum.autoScan,
+            OperationModeEnum.manualScan,
+          ],
+        },
+      ]
+    )
+  },
+  async questionPath() {
+    return inquirer['prompt'](
+      [
+        {
+          type: 'input',
+          message: `输入 ${colors.blue('wxapkg文件')} 或 ${colors.blue('目录')} 默认为( ${colors.yellow('./')} ): `,
           name: 'inputPath',
           validate(input: any, _): any {
             return checkExistsWithFilePath(path.resolve(input), {throw: true});
           },
         },
         {
-          type: 'waitUserInput',
-          message: `请输入输出目录, 默认和输入目录同级: `,
+          type: 'input',
+          message: `输出目录, 默认为( ${colors.yellow(DEFAULT_OUTPUT_PATH)} ): `,
           name: 'outputPath',
         },
       ]
     )
   },
-  isClearOldCache(cachePath = '') {
+  isClearOldCache(cachePath = '') { 
     return inquirer['prompt'](
       [
         {
           type: 'list',
-          message: `输出目录中存在上次旧的编译产物，是否覆盖 ?  ${cachePath}`,
+          message: `输出目录中存在上次旧的编译产物，是否清空 ? \n  ${colors.blue(`当前缓存路径( ${colors.yellow(cachePath)} )`)}`,
           name: 'isClearCache',
           choices: [
-            '覆盖',
-            '跳过',
+            CacheClearEnum.clear,
+            CacheClearEnum.notClear,
           ],
         },
       ]

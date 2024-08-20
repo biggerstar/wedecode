@@ -4,6 +4,7 @@ import {stdout as slog} from 'single-line-log'
 import fs from "node:fs";
 import colors from "picocolors";
 import JS, {js} from 'js-beautify'
+import {glob} from "glob";
 
 export function getPathResolveInfo(outputDir: string) {
   let _packRootPath = outputDir
@@ -94,6 +95,7 @@ const openStreamLog = false
 const excludesLogMatch = [
   // 'Completed'
 ]
+
 export function printLog(log: string, opt: {
   isStart?: boolean,
   isEnd?: boolean,
@@ -106,7 +108,7 @@ export function printLog(log: string, opt: {
   interceptor?: (log: string) => any
 } = {}) {
   if (excludesLogMatch.some(item => log.includes(item))) return;
-  if (!openStreamLog){
+  if (!openStreamLog) {
     console.log(log)
     return;
   }
@@ -178,14 +180,6 @@ export function arrayDeduplication<T extends any>(arr: T[], cb?: (pre: T[], cur:
   }, [])
 }
 
-export function checkExistsWithFilePath(path: string, opt: { throw?: boolean } = {}): boolean {
-  if (!fs.existsSync(path)) {
-    opt.throw && console.log(`\n${colors.red('\u274C   文件或目录不存在, 请检查!')}`)
-    return false
-  }
-  return true
-}
-
 export function removeVM2ExceptionLine(code: string) {
   const reg = /\s*[a-z]\x20?=\x20?VM2_INTERNAL_STATE_DO_NOT_USE_OR_PROGRAM_WILL_FAIL\.handleException\([a-z]\);?/g
   return code.replace(reg, '')
@@ -206,7 +200,7 @@ export function findCommonRoot(paths: string[]) {
   return commonRoot.join('/')
 }
 
-export function isPluginPath(path:string) {
+export function isPluginPath(path: string) {
   return path.startsWith('plugin-private://')
 }
 
@@ -214,7 +208,7 @@ export function isPluginPath(path:string) {
  * 获取某个函数的入参定义的名称
  * */
 export function getParameterNames(fn: Function) {
-  if(typeof fn !== 'function') return [];
+  if (typeof fn !== 'function') return [];
   const COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
   const code = fn.toString().replace(COMMENTS, '');
   const result = code.slice(code.indexOf('(') + 1, code.indexOf(')'))
@@ -222,4 +216,13 @@ export function getParameterNames(fn: Function) {
   return result === null
     ? []
     : result;
+}
+
+/**
+ * 判断是否是wx 的 appid
+ * */
+export function isWxAppid(str: string) {
+  const reg = /^wx[0-9a-f]{15,18}$/i
+  str = str.trim()
+  return str.length === 18 && reg.test(str)
 }
