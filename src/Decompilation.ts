@@ -1,11 +1,10 @@
 import colors from "picocolors";
-import path from "node:path";
 import {printLog} from "@/utils/common";
 import {PackTypeMapping, UnPackInfo} from "@/type";
 import {DecompilationApp} from "@/interface/DecompilationApp";
 import {DecompilationGame} from "@/interface/DecompilationGame";
 import {UnpackWxapkg} from "@/interface/UnpackWxapkg";
-import {DEFAULT_OUTPUT_PATH} from "@/constant";
+import path from "node:path";
 
 /**
  * 反编译工具类入口
@@ -16,8 +15,8 @@ export class Decompilation {
   public packInfo: UnPackInfo
 
   constructor(inputPath: string, outputPath?: string) {
-    this.packPath = inputPath
-    this.outputPath = outputPath
+    this.packPath = path.resolve(inputPath)
+    this.outputPath = path.resolve(outputPath)
   }
 
   public async unpackWxapkg() {

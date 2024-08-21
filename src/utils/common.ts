@@ -1,10 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 import {stdout as slog} from 'single-line-log'
-import fs from "node:fs";
-import colors from "picocolors";
-import JS, {js} from 'js-beautify'
-import {glob} from "glob";
+import JS from 'js-beautify'
 
 export function getPathResolveInfo(outputDir: string) {
   let _packRootPath = outputDir

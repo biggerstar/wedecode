@@ -72,3 +72,43 @@ export enum AppTypeMapping {
   app = '小程序',
   game = '小游戏',
 }
+
+export type SacnPackagesPathItem = {
+  isAppId: boolean;
+  appId: string;
+  path: string;
+  storagePath: string;
+}
+
+export type PackageInfoResult = {
+  nickname: string,
+  username: string,
+  description: string,
+  avatar: string,
+  uses_count: string
+  principal_name: string
+  appid: string
+}
+
+export type ScanPackagesResultInfo = {
+  /**
+   * 小程序名称
+   * */
+  appName: string,
+  /**
+   * 小程序描述
+   * */
+  description: string,
+  /**
+   * 小程序的 APPID
+   * */
+  appId: string,
+  /**
+   * 小程序的名称路径根
+   * */
+  path: string
+  /**
+   * 真实的小程序存放路径
+   * */
+  storagePath: string
+}

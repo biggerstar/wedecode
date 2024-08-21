@@ -1,15 +1,15 @@
 import fs from "node:fs";
-import {printLog, sleep} from "@/utils/common";
+import {isWxAppid, printLog, sleep} from "@/utils/common";
 import {glob} from "glob";
 import colors from "picocolors";
 import path from "node:path";
 import {Decompilation} from "@/Decompilation";
 import pkg from "../../../package.json";
 import checkForUpdate from "update-check";
-import {DEFAULT_OUTPUT_PATH} from "@/constant";
-import prompts from "@/utils/inquirer";
 import figlet from "figlet";
-import {CacheClearEnum} from "@/bin/wedecode/enum";
+import {AppMainPackageNames, CacheClearEnum} from "@/bin/wedecode/enum";
+import prompts from "@/bin/wedecode/inquirer";
+import process from "node:process";
 
 /**
  * 查询是否有新版本
@@ -48,6 +48,7 @@ export function createNewVersionUpdateNotice(): {
     }
   }
 }
+
 /**
  * 创建 slogan 大字横幅
  * */
@@ -78,6 +79,11 @@ export async function startCompilationProcess(inputPath: string, outputPath: str
   printLog(`\n \u25B6 当前操作类型: ${colors.yellow(isDirectory ? '分包模式' : '单包模式')}`, {isEnd: true})
   if (isDirectory) {
     const wxapkgPathList = glob.globSync(`${inputPath}/*.wxapkg`)
+    wxapkgPathList.sort((_pathA, _b) => {
+      const foundMainPackage = AppMainPackageNames.find(fileName => _pathA.endsWith(fileName))
+      if (foundMainPackage) return -1; // 将 'APP.png' 排到前面, 保证第一个解析的是主包
+      return 0; 
+    });
     for (const packPath of wxapkgPathList) {   // 目录( 多包 )
       await singlePackMode(packPath, outputPath)
     }
@@ -85,7 +91,6 @@ export async function startCompilationProcess(inputPath: string, outputPath: str
     await singlePackMode(inputPath, outputPath)
   }
   printLog(` ✅  ${colors.bold(colors.green('编译流程结束!'))}`, {isEnd: true})
-  process.exit(0)
 }
 
 
@@ -96,7 +101,7 @@ export async function startCompilationProcess(inputPath: string, outputPath: str
  * @param outputPath
  * */
 export async function startCacheQuestionProcess(isClear: boolean, inputPath: string, outputPath: string): Promise<void> {
-  const OUTPUT_PATH = path.join(path.dirname(inputPath), outputPath)
+  const OUTPUT_PATH = path.resolve(outputPath)
   if (fs.existsSync(OUTPUT_PATH)) {
     const isClearCache = isClear ? CacheClearEnum.clear : (await prompts.isClearOldCache(OUTPUT_PATH))['isClearCache']
     if (isClearCache === CacheClearEnum.clear || isClear) {
@@ -106,28 +111,70 @@ export async function startCacheQuestionProcess(isClear: boolean, inputPath: str
   }
 }
 
-export function checkExistsWithFilePath(targetPath: string, opt: { throw?: boolean } = {}): boolean {
+export function checkExistsWithFilePath(targetPath: string, opt: {
+  throw?: boolean,
+  checkWxapkg?: boolean,
+  showInputPathLog?: boolean
+}): boolean {
+  const {throw: isThrow = true, checkWxapkg = true, showInputPathLog = true} = opt || {}
   const printErr = (log: string) => {
-    console.log('\n输入路径: ', colors.yellow(path.resolve(targetPath)));
-    opt.throw && console.log(`${colors.red(`\u274C   ${log}`)}\n`)
+    if (showInputPathLog) {
+      console.log('\n输入路径: ', colors.yellow(path.resolve(targetPath)));
+    }
+    isThrow && console.log(`${colors.red(`\u274C   ${log}`)}\n`)
   }
   if (!fs.existsSync(targetPath)) {
     printErr('文件 或者 目录不存在, 请检查!')
     return false
   }
-  const isDirectory = fs.statSync(targetPath).isDirectory()
-  if (isDirectory) {
-    const wxapkgPathList = glob.globSync(`${targetPath}/*.wxapkg`)
-    if (!wxapkgPathList.length) {
-      console.log(
-        '\n',
-        colors.red('\u274C  文件夹下不存在 .wxapkg 包'),
-        colors.yellow(path.resolve(targetPath)),
-        '\n')
-      return false
+  if (checkWxapkg) {
+    const isDirectory = fs.statSync(targetPath).isDirectory()
+    if (isDirectory) {
+      const wxapkgPathList = glob.globSync(`${targetPath}/*.wxapkg`)
+      if (!wxapkgPathList.length) {
+        console.log(
+          '\n',
+          colors.red('\u274C  文件夹下不存在 .wxapkg 包'),
+          colors.yellow(path.resolve(targetPath)),
+          '\n')
+        return false
+      }
     }
   }
   return true
 }
 
+export function stopCommander() {
+  console.log(colors.red('\u274C  操作已主动终止!'))
+  process.exit(0)
+}
 
+/**
+ * 获取 win mac linux 路径分割列表
+ * */
+export function getPathSplitList(_path: string) {
+  let delimiter = '\\'
+  let partList: string[]
+  partList = _path.split('\\') // win 
+  if (partList.length <= 1) {
+    delimiter = '/'
+    partList = _path.split('/') // win 第二种路径或者 unix 路径
+  }
+  return {
+    partList,
+    delimiter
+  }
+}
+
+export function findWxAppIdPath(_path: string) {
+  const {partList, delimiter} = getPathSplitList(_path)
+  let newPathList = [...partList]
+  for (const index in partList.reverse()) {
+    const dirName = partList[index]
+    if (isWxAppid(dirName)) {
+      break
+    }
+    newPathList.pop()
+  }
+  return newPathList.join(delimiter).trim()
+}
