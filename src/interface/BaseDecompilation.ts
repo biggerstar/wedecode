@@ -7,7 +7,6 @@ import {removeAppFileList, removeGameFileList} from "@/constant";
 import {createVM} from "@/utils/createVM";
 import {deleteLocalFile, readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {
-  AppCodeInfo,
   AppTypeMapping,
   MiniAppType,
   MiniPackType,
@@ -16,14 +15,15 @@ import {
   UnPackInfo
 } from "@/type";
 import {commonDir, jsBeautify, printLog, removeVM2ExceptionLine, sleep} from "@/utils/common";
+import {deepmerge} from "@biggerstar/deepmerge";
 
-export class DecompilationBase {
-  public pathInfo: PathResolveInfo
-  public outputPathInfo: PathResolveInfo
-  public packPath: string
-  public packType: MiniPackType
-  public appType: MiniAppType
-  public ployFill: PloyFill
+export class BaseDecompilation {
+  public readonly pathInfo: PathResolveInfo
+  public readonly outputPathInfo: PathResolveInfo
+  public readonly packPath: string
+  public readonly packType: MiniPackType
+  public readonly appType: MiniAppType
+  public readonly ployFill: PloyFill
 
   constructor(packInfo: UnPackInfo) {
     this.pathInfo = packInfo.pathInfo
@@ -34,24 +34,66 @@ export class DecompilationBase {
     this.ployFill = new PloyFill(this.packPath)
   }
 
-  /**
-   * 反编译 Worker 文件
-   * */
   protected async decompileAppWorker(): Promise<any> {
     await sleep(200)
     if (!fs.existsSync(this.pathInfo.workersPath)) {
       return
     }
+    if (!fs.existsSync(this.pathInfo.appJsonPath)) {
+      return
+    }
+    const appConfig: Record<any, any> = JSON.parse(readLocalFile(this.pathInfo.appJsonPath))
+    let code = readLocalFile(this.pathInfo.workersPath)
+    let commPath: string = '';
+    let vm = createVM({
+      sandbox: {
+        define(name: string) {
+          name = path.dirname(name) + '/';
+          if (!commPath) commPath = name;
+          commPath = commonDir(commPath, name);
+        }
+      }
+    })
+    vm.run(code.slice(code.indexOf("define(")));
+    if (commPath.length > 0) commPath = commPath.slice(0, -1);
+    printLog(`Worker path:  ${commPath}`);
+    appConfig.workers = commPath
+    saveLocalFile(this.pathInfo.appJsonPath, JSON.stringify(appConfig, null, 2))
+    printLog(` \u25B6 反编译 Worker 文件成功. \n`, {isStart: true})
+  }
+
+  /**
+   * 反编译 Worker 文件
+   * */
+  protected async decompileAppWorkers(): Promise<any> {
+    await sleep(200)
+    if (!fs.existsSync(this.pathInfo.workersPath)) {
+      return
+    }
+    let allWorkerList = []
     const _this = this
+    let commPath: string = '';
     let code = readLocalFile(this.pathInfo.workersPath)
     let vm = createVM({
       sandbox: {
         define(name: string, func: Function) {
+          allWorkerList.push(name)
           _this._parseJsDefine(name, func)
+          const workerPath = path.dirname(name) + '/';
+          if (!commPath) commPath = workerPath;
+          commPath = commonDir(commPath, workerPath);
         }
       }
     })
     vm.run(code);
+    printLog(`Worker path:  ${commPath}`);
+
+    if (commPath) {
+      const configFileName = this.appType === 'game' ? this.pathInfo.gameJsonPath : this.pathInfo.appJsonPath
+      const appConfig: Record<any, any> = JSON.parse(readLocalFile(configFileName))
+      appConfig.workers = commPath
+      saveLocalFile(configFileName, JSON.stringify(appConfig, null, 2), {force: true})
+    }
     printLog(` \u25B6 反编译 Worker 文件成功. \n`, {isStart: true})
   }
 
@@ -59,8 +101,7 @@ export class DecompilationBase {
    * 生成小程序的项目配置
    * */
   protected async generaProjectConfigFiles() {
-    const projectPrivateConfigPath = this.pathInfo.outputResolve('project.private.config.json')
-    const projectPrivateConfigData = {
+    const defaultConfigData = {
       "setting": {
         "es6": false,
         "urlCheck": false,
@@ -68,7 +109,16 @@ export class DecompilationBase {
         "ignoreUploadUnusedFiles": false,
       }
     }
-    saveLocalFile(projectPrivateConfigPath, JSON.stringify(projectPrivateConfigData, null, 2))
+    let finallyConfig = {}
+    const projectPrivateConfigString = readLocalFile(this.pathInfo.projectPrivateConfigJsonPath)
+    if (projectPrivateConfigString) {
+      const projectPrivateConfigData = JSON.parse(projectPrivateConfigString)
+      deepmerge(projectPrivateConfigData, defaultConfigData)
+      finallyConfig = projectPrivateConfigData
+    } else {
+      finallyConfig = defaultConfigData
+    }
+    saveLocalFile(this.pathInfo.projectPrivateConfigJsonPath, JSON.stringify(finallyConfig, null, 2), {force: true})
   }
 
   protected async removeCache() {
@@ -140,5 +190,5 @@ export class DecompilationBase {
       printLog(" Completed " + ` (${resultCode.length}) \t` + colors.bold(colors.gray(name)))
     }
   }
-  
+
 }

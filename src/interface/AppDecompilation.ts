@@ -5,7 +5,7 @@ import path from "node:path";
 import {glob} from "glob";
 import process from "node:process";
 import cssbeautify from "cssbeautify";
-import {DecompilationBase} from "./DecompilationBase";
+import {BaseDecompilation} from "./BaseDecompilation";
 import {createVM} from "@/utils/createVM";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {appJsonExcludeKeys, pluginDirRename} from "@/constant";
@@ -17,8 +17,7 @@ import {
   getParameterNames,
   isPluginPath,
   jsBeautify,
-  printLog, removeVM2ExceptionLine,
-  replaceExt,
+  printLog, replaceExt,
   sleep
 } from "@/utils/common";
 import {getAppPackCodeInfo} from "@/utils/getPackCodeInfo";
@@ -27,9 +26,13 @@ import {JSDOM} from "jsdom";
 /**
  * 反编译小程序
  * */
-export class DecompilationApp extends DecompilationBase {
+export class AppDecompilation extends BaseDecompilation {
   private codeInfo: AppCodeInfo
   private allSubPackagePages: string[] = []
+  /**
+   *
+   * */
+  private allRefComponentList: string[] = []
   /**
    * 不包含插件的所有各种的模块定义
    * */
@@ -37,13 +40,13 @@ export class DecompilationApp extends DecompilationBase {
   /**
    * 所有插件的所有各种的模块定义
    * */
-  private PLUGINS: Record<string, ModuleDefine> = {}
+  private readonly PLUGINS: Record<string, ModuleDefine> = {}
   private DecompilationWXS?: Record<string, Function>
   /**
    * 是否将第三方的远程插件转换变成本地离线使用
    * */
   public convertPlugin: boolean = false
-  private wxsRefInfo: Record<string, {
+  private readonly wxsRefInfo: Record<string, {
     vSrc?: string,
     src: string,
     fileSrc: string,
@@ -58,24 +61,6 @@ export class DecompilationApp extends DecompilationBase {
   public constructor(packInfo: UnPackInfo) {
     super(packInfo);
   }
-
-  /**
-   * 为分包注入主包的环境代码, 自动分辨注入小程序或者小游戏代码
-   * */
-  // private injectMainPackCode(vm: VM) {
-  //   let baseEnvCode1 = this.rootCodeInfo.appWxss || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
-  //   let baseEnvCode2 = this.rootCodeInfo.appService || this.rootCodeInfo.pageFrame || this.rootCodeInfo.pageFrameHtml
-  //   try {
-  //     if (baseEnvCode1) vm.run(baseEnvCode1)
-  //   } catch (e) {
-  //   }
-  //   try {
-  //     if (baseEnvCode2) vm.run(baseEnvCode2)
-  //   } catch (e) {
-  //
-  //   }
-  //   vm.sandbox.$gwx = vm.sandbox.$gwx || (() => void 0)
-  // }
 
   /**
    * 初始化, 所有后续反编译且不会被动态改变的所需要的信息都在这里加载
@@ -151,6 +136,17 @@ export class DecompilationApp extends DecompilationBase {
 
     if (this.packType === 'main') {
       const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)
+      const allPageJsonConfig = appConfig.page
+      this.allRefComponentList = arrayDeduplication(Object.keys(allPageJsonConfig || {})
+        .map((pagePath: any) => {
+          const pageInfo = allPageJsonConfig[pagePath]
+          const allRefComponents: string[] = Object.values(pageInfo?.window?.['usingComponents'] || {})
+          return allRefComponents.map(compRelativePath => {
+            return `.${path.resolve(path.relative(this.pathInfo.resolve(pagePath), compRelativePath))}`
+          })
+        })
+        .flat(2))
+
       this.allSubPackagePages = (appConfig.subPackages || [])
         .map((subPackage: any) => appConfig.pages.filter((pagePath: string) => pagePath.startsWith(subPackage.root)))
         .flat(2)
@@ -629,15 +625,22 @@ export class DecompilationApp extends DecompilationBase {
    * 生成组件构成必要素的默认 json wxs, wxml, wxss 文件
    * */
   private async generateDefaultAppFiles() {
-    const allPageAbsolutePathList = glob.globSync(`${this.pathInfo.packRootPath}/**/*.html`).filter((str) => {
-      return ![
-        'page-frame.html'
-      ].includes(path.basename(str))
-    })
+    const allPageAbsolutePathList = glob
+      .globSync(
+        `${this.pathInfo.resolve()}/**/*.html`
+      )
+      .filter((str) => {
+        return ![
+          'page-frame.html'
+        ].includes(path.basename(str))
+      })
+      .map(_path => {
+        return path.relative(this.pathInfo.outputPath, _path)
+      })
     const allPage = allPageAbsolutePathList.map(str => str.replace(this.pathInfo.packRootPath, '.'))
     const allPageAndComp = allPage
+      .concat(this.allRefComponentList)
       .concat(this.allSubPackagePages)
-    // console.log(this.allSubPackagePages)
 
     for (let pagePath of allPageAndComp) {
       // /* json */
@@ -675,9 +678,9 @@ export class DecompilationApp extends DecompilationBase {
     }
     await this.decompileAppWXML()
     await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行 
+    await this.decompileAppWorkers()
     /* ----------------------------------- */
     await this.generateDefaultAppFiles()
-    await this.decompileAppWorker()
     await this.generaProjectConfigFiles()
     if (!process.env.DEV) {
       await this.removeCache()

@@ -1,8 +1,8 @@
 import colors from "picocolors";
 import {printLog} from "@/utils/common";
 import {PackTypeMapping, UnPackInfo} from "@/type";
-import {DecompilationApp} from "@/interface/DecompilationApp";
-import {DecompilationGame} from "@/interface/DecompilationGame";
+import {AppDecompilation} from "@/interface/AppDecompilation";
+import {GameDecompilation} from "@/interface/GameDecompilation";
 import {UnpackWxapkg} from "@/interface/UnpackWxapkg";
 import path from "node:path";
 
@@ -10,8 +10,8 @@ import path from "node:path";
  * 反编译工具类入口
  * */
 export class Decompilation {
-  public packPath: string
-  public outputPath: string
+  public readonly packPath: string
+  public readonly outputPath: string
   public packInfo: UnPackInfo
 
   constructor(inputPath: string, outputPath?: string) {
@@ -28,11 +28,11 @@ export class Decompilation {
     await this.unpackWxapkg()
     if (this.packInfo.appType === 'game') {
       // 小游戏
-      const decompilationGame = new DecompilationGame(this.packInfo)
+      const decompilationGame = new GameDecompilation(this.packInfo)
       await decompilationGame.decompileAll()
     } else {
       // 小程序
-      const decompilationApp = new DecompilationApp(this.packInfo)
+      const decompilationApp = new AppDecompilation(this.packInfo)
       decompilationApp.convertPlugin = true
       await decompilationApp.decompileAll()
     }

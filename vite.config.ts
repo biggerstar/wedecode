@@ -18,6 +18,7 @@ const external = [
   'vm2',
   'node:path',
   'node:process',
+  'node:child_process',
   'node:module',
   'node:fs',
   'node:crypto',

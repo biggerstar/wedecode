@@ -5,10 +5,10 @@ import JS from 'js-beautify'
 
 export function getPathResolveInfo(outputDir: string) {
   let _packRootPath = outputDir
-  const resolve = (_new_resolve_path: string, ...args: string[]): string => {
+  const resolve = (_new_resolve_path: string = './', ...args: string[]): string => {
     return path.resolve(outputDir, _packRootPath, _new_resolve_path, ...args)
   }
-  const outputResolve = (_new_resolve_path: string, ...args: string[]): string => {
+  const outputResolve = (_new_resolve_path: string = './', ...args: string[]): string => {
     return path.resolve(outputDir, _new_resolve_path, ...args)
   }
   return {
@@ -28,6 +28,9 @@ export function getPathResolveInfo(outputDir: string) {
     },
     get appConfigJsonPath() {
       return resolve('app-config.json')
+    },
+    get projectPrivateConfigJsonPath() {
+      return resolve('project.private.config.json')
     },
     get appWxssPath() {
       return resolve('app-wxss.js')
@@ -49,6 +52,9 @@ export function getPathResolveInfo(outputDir: string) {
     },
     get appServiceAppPath() {
       return resolve('appservice.app.js')
+    },
+    get gameJsonPath() {
+      return resolve('game.json')
     },
     get gameJsPath() {
       return resolve('game.js')
@@ -140,6 +146,9 @@ export function printLog(log: string, opt: {
   slog(log)
 }
 
+/**
+ * 获取公共的最长目录
+ * */
 export function commonDir(pathA: string, pathB: string) {
   if (pathA[0] === ".") pathA = pathA.slice(1);
   if (pathB[0] === ".") pathB = pathB.slice(1);

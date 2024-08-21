@@ -3,7 +3,7 @@ import {glob} from "glob";
 import {PloyfillItem} from "@/type";
 
 export class PloyFill {
-  public allPloyFills: PloyfillItem[] = []
+  public readonly allPloyFills: PloyfillItem[] = []
 
   constructor(packPath: string) {
     const customHeaderPathPart = path.resolve(path.dirname(packPath), 'polyfill')

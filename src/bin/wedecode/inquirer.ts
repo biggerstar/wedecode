@@ -1,20 +1,33 @@
 import inquirer from "inquirer";
 import path from "node:path";
 import colors from "picocolors";
-import {checkExistsWithFilePath} from "@/bin/wedecode/common";
+import {checkExistsWithFilePath, internetAvailable} from "@/bin/wedecode/common";
 import {PUBLIC_OUTPUT_PATH} from "@/constant";
 import {CacheClearEnum, YesOrNoEnum, OperationModeEnum} from "@/bin/wedecode/enum";
 // @ts-ignore
 import {SelectTableTablePrompt} from "@biggerstar/inquirer-selectable-table";
+import {sleep} from "@/utils/common";
 
 inquirer.registerPrompt("table", SelectTableTablePrompt);
+
+let online: boolean = false
+
+async function checkOnline() {
+  online = await internetAvailable()
+}
+
+setTimeout(checkOnline, 0)
+
 const prompts = {
   async selectMode() {
+    const offlineTip: string = `( ${colors.yellow('联网可显示小程序信息')} )`
+    const onlineTip: string = `( ${colors.green('网络正常')} )`
+    await sleep(1000)
     return inquirer['prompt'](
       [
         {
           type: 'list',
-          message: `请选择操作模式 ? `,
+          message: `请选择操作模式 ? ${!online ? offlineTip : onlineTip}`,
           name: 'selectMode',
           choices: [
             OperationModeEnum.autoScan,

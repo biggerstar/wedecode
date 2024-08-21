@@ -1,23 +1,22 @@
 import colors from "picocolors";
-import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
+import {saveLocalFile} from "@/utils/fs-process";
 import {createVM} from "@/utils/createVM";
-import {jsBeautify, printLog, removeVM2ExceptionLine, sleep} from "@/utils/common";
+import {printLog, sleep} from "@/utils/common";
 import {GameCodeInfo, UnPackInfo} from "@/type";
-import {DecompilationBase} from "@/interface/DecompilationBase";
+import {BaseDecompilation} from "@/interface/BaseDecompilation";
 import {getGamePackCodeInfo} from "@/utils/getPackCodeInfo";
 import process from "node:process";
 import {GameJsonExcludeKeys} from "@/constant";
-import {glob} from "glob";
 
 /**
  * 反编译工具类入口
  * */
-export class DecompilationGame extends DecompilationBase {
+export class GameDecompilation extends BaseDecompilation {
   private codeInfo: GameCodeInfo
   public wxsList: any[]
-  public allRefComponentList: string[] = []
-  public allSubPackagePages: string[] = []
-  public allPloyFill: { fullPath: string, ployfillPath: string }[] = []
+  public readonly allRefComponentList: string[] = []
+  public readonly allSubPackagePages: string[] = []
+  public readonly allPloyFill: { fullPath: string, ployfillPath: string }[] = []
 
   public constructor(packInfo: UnPackInfo) {
     super(packInfo);
@@ -94,8 +93,8 @@ export class DecompilationGame extends DecompilationBase {
     await this.initGame()
     await this.decompileGameJSON()
     await this.decompileGameJS()
+    await this.decompileAppWorkers()
     /* ----------------------------------- */
-    await this.decompileAppWorker()
     await this.generaProjectConfigFiles()
     if (!process.env.DEV) {
       await this.removeCache()

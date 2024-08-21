@@ -10,7 +10,7 @@ export enum CacheClearEnum {
 }
 
 export enum OperationModeEnum {
-  autoScan = '自动扫描小程序包 ( 联网可显示小程序信息 )',
+  autoScan = '自动扫描小程序包',
   manualScan = '手动设定扫描目录',
 }
 

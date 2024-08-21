@@ -17,8 +17,8 @@
     "unlink": "pnpm unlink",
     "release:npm": "vite build && npm publish",
     "release:git": "vite build && git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
-    "dev:unpack:dir": "DEV=true wedecode -ow true -o OUTPUT pkg/issues8-sxd",
-    "dev:unpack:game-dir": "DEV=true wedecode -ow true -o OUTPUT-GAME pkg/mini-game",
+    "dev:unpack:dir": "DEV=true wedecode --clear  -o OUTPUT pkg/weimiao-xingqiu",
+    "dev:unpack:game-dir": "DEV=true wedecode --clear -o OUTPUT-GAME pkg/mini-game",
     "dev:unpack:subPack": "DEV=true wedecode --overwrite=true -o OUTPUT pkg/mt/_mobike_.wxapkg",
     "preview:unpack": "wedecode -ow true -o OUTPUT pkg/issues8-sxd"
   },

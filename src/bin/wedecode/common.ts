@@ -3,13 +3,14 @@ import {isWxAppid, printLog, sleep} from "@/utils/common";
 import {glob} from "glob";
 import colors from "picocolors";
 import path from "node:path";
-import {Decompilation} from "@/Decompilation";
 import pkg from "../../../package.json";
 import checkForUpdate from "update-check";
 import figlet from "figlet";
-import {AppMainPackageNames, CacheClearEnum} from "@/bin/wedecode/enum";
+import {CacheClearEnum} from "@/bin/wedecode/enum";
 import prompts from "@/bin/wedecode/inquirer";
 import process from "node:process";
+import axios from "axios";
+
 
 /**
  * 查询是否有新版本
@@ -60,39 +61,6 @@ export function createSlogan(str: string = '    wedecode'): string {
   })
   return colors.bold(colors.yellow(slogan))
 }
-
-/**
- * 进行单包反编译
- * @param {String} wxapkgPath   wxapkg包路径
- * @param {String} outputPath  输出目录
- * */
-async function singlePackMode(wxapkgPath: string, outputPath: string): Promise<void> {
-  const decompilationMicroApp = new Decompilation(wxapkgPath, outputPath)
-  await decompilationMicroApp.decompileAll()
-}
-
-/**
- * 启动编译流程
- * ]*/
-export async function startCompilationProcess(inputPath: string, outputPath: string): Promise<void> {
-  const isDirectory = fs.statSync(inputPath).isDirectory()
-  printLog(`\n \u25B6 当前操作类型: ${colors.yellow(isDirectory ? '分包模式' : '单包模式')}`, {isEnd: true})
-  if (isDirectory) {
-    const wxapkgPathList = glob.globSync(`${inputPath}/*.wxapkg`)
-    wxapkgPathList.sort((_pathA, _b) => {
-      const foundMainPackage = AppMainPackageNames.find(fileName => _pathA.endsWith(fileName))
-      if (foundMainPackage) return -1; // 将 'APP.png' 排到前面, 保证第一个解析的是主包
-      return 0; 
-    });
-    for (const packPath of wxapkgPathList) {   // 目录( 多包 )
-      await singlePackMode(packPath, outputPath)
-    }
-  } else {  // 文件 ( 单包 )
-    await singlePackMode(inputPath, outputPath)
-  }
-  printLog(` ✅  ${colors.bold(colors.green('编译流程结束!'))}`, {isEnd: true})
-}
-
 
 /**
  * 询问是否清空旧产物
@@ -177,4 +145,16 @@ export function findWxAppIdPath(_path: string) {
     newPathList.pop()
   }
   return newPathList.join(delimiter).trim()
+}
+
+export async function internetAvailable() {
+  return axios
+    .request({
+      url: 'https://bing.com',
+      maxRedirects: 0,
+      timeout: 2000,
+      validateStatus: ()=> true
+    })
+    .then(()=> true)
+    .catch(()=> Promise.resolve(false))
 }

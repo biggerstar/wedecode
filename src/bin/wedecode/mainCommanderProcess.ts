@@ -1,11 +1,12 @@
 import {ScanPackagesResultInfo} from "@/type";
 import {OperationModeEnum, StreamPathDefaultEnum} from "@/bin/wedecode/enum";
 import {startSacnPackagesProcess} from "@/bin/wedecode/scan";
-import {checkExistsWithFilePath, startCacheQuestionProcess, startCompilationProcess} from "@/bin/wedecode/common";
+import {checkExistsWithFilePath, startCacheQuestionProcess} from "@/bin/wedecode/common";
 import path from "node:path";
 import openFileExplorer from "open-file-explorer";
 import {sleep} from "@/utils/common";
 import prompts from "@/bin/wedecode/inquirer";
+import {DecompilationController} from "@/DecompilationController";
 
 /**
  * 通过命令行交互获取输入和输出路径
@@ -15,7 +16,7 @@ async function setInputAndOutputPath(config: Record<any, any>, opt: {
   hasOutputPath: boolean
 }): Promise<void> {
   const {hasInputPath = false, hasOutputPath = false} = opt || {}
-  let packInfo: Partial<ScanPackagesResultInfo>  
+  let packInfo: Partial<ScanPackagesResultInfo>
   if (!hasInputPath) {
     const {selectMode} = await prompts.selectMode()
     if (selectMode === OperationModeEnum.autoScan) {
@@ -40,6 +41,7 @@ async function setInputAndOutputPath(config: Record<any, any>, opt: {
     config.outputPath = path.resolve(StreamPathDefaultEnum.publicOutputPath, config.outputPath)
   }
 }
+
 /**
  * 执行主命令行程序流程
  * */
@@ -55,8 +57,9 @@ export async function startMainCommanderProcess(args: string[], argMap: Record<s
   if (!checkExistsWithFilePath(config.inputPath, {throw: true})) return false
   // 经过下面转换， 文件输出位置最终都会在改小程序包同级目录下的 __OUTPUT__ 文件夹中输出
   await startCacheQuestionProcess(isClear, config.inputPath, config.outputPath)
-  await startCompilationProcess(config.inputPath, config.outputPath)
-  if (argMap.openDir){
+  const decompilationController = new DecompilationController(config.inputPath, config.outputPath)
+  await decompilationController.startDecompilerProcess()
+  if (argMap.openDir) {
     console.log('\n \u25B6  打开文件管理器: ', path.resolve(config.outputPath))
     openFileExplorer(config.outputPath, () => void 0)
   }
