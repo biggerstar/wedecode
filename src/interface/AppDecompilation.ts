@@ -11,7 +11,7 @@ import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {appJsonExcludeKeys, cssBodyToPageReg, pluginDirRename} from "@/constant";
 import {getZ} from "@/utils/getZ";
 import {tryDecompileWxml} from "@/utils/decompileWxml";
-import {AppCodeInfo, ModuleDefine, UnPackInfo} from "@/type";
+import {AppCodeInfo, ModuleDefine, UnPackInfo, WxsRefInfo} from "@/type";
 import {
   arrayDeduplication,
   getParameterNames,
@@ -23,6 +23,7 @@ import {
 import {getAppPackCodeInfo} from "@/utils/getPackCodeInfo";
 import {JSDOM} from "jsdom";
 import {isDev} from "@/bin/wedecode/enum";
+import {deepmerge} from "@biggerstar/deepmerge";
 
 /**
  * 反编译小程序
@@ -42,18 +43,16 @@ export class AppDecompilation extends BaseDecompilation {
    * 所有插件的所有各种的模块定义
    * */
   private readonly WXML_PLUGINS: Record<string, ModuleDefine> = {}
-  private DecompilationWXS?: Record<string, Function>
   /**
    * 是否将第三方的远程插件转换变成本地离线使用
    * */
   public convertPlugin: boolean = false
-  private readonly wxsRefInfo: Record<string, {
-    vSrc?: string,
-    src: string,
-    fileSrc: string,
-    moduleName?: string,
-    templateList?: string[]
-  }[]> = {}
+  /**
+   * 包的配置
+   * */
+  public appConfig: Record<any, any> = {}
+  public pluginNames: string[]
+  private readonly wxsRefInfo: WxsRefInfo = []
 
   /**
    * 所有在 page.json 中被引用的组件
@@ -69,6 +68,8 @@ export class AppDecompilation extends BaseDecompilation {
    * */
   private async initApp() {
     this.codeInfo = getAppPackCodeInfo(this.pathInfo)
+    this.appConfig = JSON.parse(this.codeInfo.appConfigJson || '{}')
+    this.pluginNames = Object.values(this.appConfig.plugins || []).map((item: Record<any, any>) => item.provider) || []
 
     //  用户 polyfill
     const loadInfo = {}
@@ -83,62 +84,72 @@ export class AppDecompilation extends BaseDecompilation {
       }
       return
     }
-    const vm = createVM()
+    const vm = createVM({
+      sandbox: {
+        __HOOK_WXS_LIST__: [],
+        setTimeout
+      }
+    })
     code = code
       .replaceAll(
         'var e_={}',
         `var e_ = {}; window.DecompilationModules = global;`
       )
-      .replace(
-        'var nom={};return function(n){',
-        'var nom={}; window.DecompilationWXS = nnm; return function(n){ var keepPath = n; '
+      .replaceAll(
+        'var nom={};',
+        `var nom = {}; __HOOK_WXS_LIST__.push(nnm);`
       )
-      .replace(
-        'return function(){if(!nnm[n])',
-        'return function(){ if (window.isHookReady){ return keepPath }; if(!nnm[n])'
+      .replaceAll(
+        'function(){if(!nnm[n])',
+        `function(){ return {n, func: nnm[n]};`
       )
-    code = code + ';window.isHookReady = true'
+
     vm.run(code)
-    this.DecompilationModules = {...vm.sandbox.window['DecompilationModules']} || {}
-    this.DecompilationWXS = {...vm.sandbox.window['DecompilationWXS']} || {}
+    this.DecompilationModules = {...vm.sandbox.window['DecompilationModules']} || {entrys: {}, modules: {}, defines: {}}
+
     for (const name in vm.sandbox) {
+      const func = vm.sandbox[name]
+      if (typeof func !== 'function') continue
       vm.sandbox.__wxAppCode__ = {}
-      const global = {}
-      if (name.startsWith('$gwx_wx')) { // 插件处理
+      const isPlugin = name.startsWith('$gwx_wx') && this.pluginNames.find(pluginName => name.includes(pluginName))
+      const global: Partial<ModuleDefine> = {}
+      if (isPlugin) { // 插件处理
         const appId = name.replace('$gwx_', '') // 插件APPID
+        try {
+          // 将所有的 $gwx_  加载到 global 对象中， window.DecompilationModules 是 global 的引用 
+          func(void 0, global)
+          deepmerge(this.DecompilationModules.entrys, global.entrys || {})
+        } catch (e) {
+        }
         if (!isWxAppid(appId)) {
           continue
         }
-        const func = vm.sandbox[name]
+        this.WXML_PLUGINS[appId] = global as any
+      } else if (name.startsWith('$gwx')) { // 主环境模块组件处理
         try {
-          // 将所有的 $gwx_  加载到 global 对象中， window.DecompilationModules 是 global 的引用
-          func(void 0, global)
-          this.WXML_PLUGINS[appId] = global as any
+          func('', this.DecompilationModules)()
         } catch (e) {
         }
       }
     }
-    for (const filepath in this.DecompilationModules.modules) {
-      if (path.extname(filepath) !== '.wxml') continue
-      const wxmlRefWxsMap = this.DecompilationModules.modules[filepath]
-      if (!this.wxsRefInfo[filepath]) this.wxsRefInfo[filepath] = []
-      for (const moduleName in wxmlRefWxsMap) {
-        const vSrc = wxmlRefWxsMap[moduleName]()
-        if (typeof vSrc === 'string') {
-          const src: string = resetWxsRequirePath(vSrc, './')
-          this.wxsRefInfo[filepath].push({
-            src: src,
-            fileSrc: src.includes(':') ? src.split(':')[0] : src,
-            vSrc,
-            moduleName,
-            templateList: []
-          })
-        }
+
+    for (const wxmlPath in this.DecompilationModules.modules) {
+      if (path.extname(wxmlPath) !== '.wxml') continue
+      const wxmlRefWxsInfo = this.DecompilationModules.modules[wxmlPath]
+      for (const moduleName in wxmlRefWxsInfo) {
+        const {n, func} = wxmlRefWxsInfo[moduleName]()
+        this.wxsRefInfo.push(<any>{
+          wxmlPath: wxmlPath,
+          wxsPath: resetWxsRequirePath(n).split(':')[0],
+          isInline: n.startsWith('m_'),
+          moduleName,
+          wxsRender: func,
+          templateList: []
+        })
       }
     }
-
     if (this.packType === 'main') {
-      const appConfig: Record<any, any> = JSON.parse(this.codeInfo.appConfigJson)
+      const appConfig = this.appConfig
       const allPageJsonConfig = appConfig.page
       this.allRefComponentList = arrayDeduplication(Object.keys(allPageJsonConfig || {})
         .map((pagePath: any) => {
@@ -162,8 +173,7 @@ export class AppDecompilation extends BaseDecompilation {
   private async decompileAppJSON() {
     if (this.packType !== 'main') return
     await sleep(200)
-    const appConfigString = this.codeInfo.appConfigJson
-    const appConfig: Record<any, any> = JSON.parse(appConfigString)
+    const appConfig = this.appConfig
     Object.assign(appConfig, appConfig.global)
     delete appConfig.global
     delete appConfig.page
@@ -180,7 +190,7 @@ export class AppDecompilation extends BaseDecompilation {
       }, null, 2))
     }
 
-    if (appConfigString.includes('"renderer": "skyline"') || appConfigString.includes('"renderer":"skyline"')) {
+    if (this.codeInfo.appConfigJson.includes('"renderer": "skyline"') || this.codeInfo.appConfigJson.includes('"renderer":"skyline"')) {
       appConfig.lazyCodeLoading = "requiredComponents"
       delete appConfig.window['navigationStyle']
       delete appConfig.window['navigationBarTextStyle']
@@ -409,7 +419,7 @@ export class AppDecompilation extends BaseDecompilation {
         return item
       })
       let cssText = arr.join('')
-      cssText = cssText.replace(cssBodyToPageReg, 'page{') 
+      cssText = cssText.replace(cssBodyToPageReg, 'page{')
       saveLocalFile(this.pathInfo.outputResolve(cssPath), cssbeautify(cssText))
     }
     return () => void 0
@@ -500,7 +510,10 @@ export class AppDecompilation extends BaseDecompilation {
     }
   }
 
-  public functionToWXS(wxsFunc: Function) {
+  public functionToWXS(wxsFunc: Function, basePath: string) {
+    if (!basePath) {
+      throw new Error('basePath is required')
+    }
     const funcHeader = 'nv_module={nv_exports:{}};';
     const funcEnd = 'return nv_module.nv_exports;}';
     const matchReturnReg = /return\s*\(\{(.|\r|\t|\n)*?}\)/
@@ -509,9 +522,14 @@ export class AppDecompilation extends BaseDecompilation {
     let code = wxsFunc.toString()
     code = code.slice(code.indexOf(funcHeader) + funcHeader.length, code.lastIndexOf(funcEnd)).replaceAll('nv_', '')
     code = code.replace(wxsCodeRequireReg, (matchString: string) => {
-      const newRequire = resetWxsRequirePath(matchString, './').replace('()', '')
-      // console.log(newRequire)
-      return newRequire
+      const newRequireString = resetWxsRequirePath(matchString, './')
+        .replace("require('", '')
+        .replace("')();", '')
+      let relativePath = path.relative(
+        this.pathInfo.resolve(path.dirname(basePath)),
+        this.pathInfo.resolve(newRequireString),
+      );
+      return `require('${relativePath}');`
     })
     const matchInfo = matchReturnReg.exec(code)
     const matchList = []
@@ -530,45 +548,50 @@ export class AppDecompilation extends BaseDecompilation {
   }
 
   private async decompileAppWXS() {
-    const DecompilationWXS = this.DecompilationWXS
-    const shortDecompilationWXS = {}
-
-    for (const wxsPath in DecompilationWXS) {   // 处理并保存 wxs 文件
-      const wxsOutputShortPath = resetWxsRequirePath(wxsPath, './')
-      shortDecompilationWXS[wxsOutputShortPath] = DecompilationWXS[wxsPath]
-      if (path.extname(wxsPath) !== '.wxs') continue
-      const wxsFunc = DecompilationWXS[wxsPath]
-      const wxsString = this.functionToWXS(wxsFunc)
-      // console.log(wxsOutputShortPath)
-      saveLocalFile(this.pathInfo.outputResolve(wxsOutputShortPath), wxsString)
+    // 保存被 wxml 引用的 wxs 文件
+    this.wxsRefInfo.forEach(item => {
+      if (item.isInline) return
+      if (!item.wxsPath.endsWith('.wxs')) return
+      const wxsString = this.functionToWXS(item.wxsRender, item.wxsPath)
+      saveLocalFile(this.pathInfo.resolve(item.wxsPath), wxsString)
+      printLog(" Completed " + ` (${wxsString.length}) \t` + colors.bold(colors.gray(item.wxsPath)))
+    })
+    // 保存游离的被 JS 引用的 wxs 文件
+    for (const wxsPath in this.DecompilationModules.modules) {
+      if (!wxsPath.endsWith('.wxs')) continue
+      const DModule = this.DecompilationModules.modules
+      const func = DModule[wxsPath] as Function
+      if (typeof func !== 'function') {
+        console.log(wxsPath, '[wxs] is not a function')
+        continue
+      }
+      const result = func()
+      const wxsString = this.functionToWXS(result.func, wxsPath)
+      saveLocalFile(this.pathInfo.resolve(wxsPath), wxsString)
       printLog(" Completed " + ` (${wxsString.length}) \t` + colors.bold(colors.gray(wxsPath)))
     }
-    
-    for (const referencerOwnPath/* 引用 wxs 的 wxml文件 */ in this.wxsRefInfo) {
-      const wxsInPageList = this.wxsRefInfo[referencerOwnPath]
-      wxsInPageList.forEach(item => {
-        let relativePath = path.relative(
-          this.pathInfo.resolve(path.dirname(referencerOwnPath)), 
-          this.pathInfo.resolve(item.fileSrc)
-        )
-        if (item.src.includes(":")) {
-          item.templateList.push(`<wxs module="${item.moduleName}">\n${this.functionToWXS(shortDecompilationWXS[item.src])}\n</wxs>`);
-        } else {
-          item.templateList.push(`<wxs module="${item.moduleName}" src="${relativePath}"/>`);
-        }
-      })
-    }
+    // console.log(this.DecompilationModules.modules)
+    // 解析模板归属
+    this.wxsRefInfo.forEach(item => {
+      let relativePath = path.relative(
+        this.pathInfo.resolve(path.dirname(item.wxmlPath)),
+        this.pathInfo.resolve(item.wxsPath)
+      )
+      if (item.isInline) {
+        item.templateList.push(`<wxs module="${item.moduleName}">\n${this.functionToWXS(item.wxsRender, item.wxsPath)}\n</wxs>`);
+      } else {
+        item.templateList.push(`<wxs module="${item.moduleName}" src="${relativePath}"/>`);
+      }
+    })
+    // 修改 wxml 文件
+    this.wxsRefInfo.forEach(item => {
+      if (item.templateList && !item.templateList.length) return
+      const wxmlAbsolutePath = this.pathInfo.resolve(item.wxmlPath)
+      const templateString = item.templateList.join('\n')
+      const wxmlCode = readLocalFile(wxmlAbsolutePath)
+      saveLocalFile(wxmlAbsolutePath, `${wxmlCode}\n${templateString}`, {force: true})
+    })
 
-    for (const wxmlRelativePath in this.wxsRefInfo) {
-      const wxsInPageList = this.wxsRefInfo[wxmlRelativePath]
-      wxsInPageList.forEach(item => {
-        if (!item.templateList) return
-        const wxmlAbsolutePath = this.pathInfo.resolve(wxmlRelativePath)
-        const templateString = item.templateList.join('\n')
-        const wxmlCode = readLocalFile(wxmlAbsolutePath)
-        saveLocalFile(wxmlAbsolutePath, `${wxmlCode}\n${templateString}`, {force: true})
-      })
-    }
     if (Object.keys(this.wxsRefInfo).length) {
       printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
     }

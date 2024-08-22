@@ -18,9 +18,18 @@ export type GameCodeInfo = {
 }
 
 export type ModuleDefine = {
-  modules: Record<string, Record<any, any> | Function>
-  defines: Record<any, Record<any, any>>
+  /**
+   * 包含所有的 wxml 组件渲染函数
+   * */
   entrys: Record<string, { f: Function, j: any[], i: any[], ti: any[], ic: any[] }>
+  /**
+   * 包含当前已经载入的模块和 wxs 映射关系
+   * */
+  modules: Record<string, Record<any, any> | Function>
+  /**
+   * 包含所有的 wxml 组件定义
+   * */
+  defines: Record<any, Record<any, any>>
 }
 export type UnPackInfo = {
   /**
@@ -60,14 +69,15 @@ export type PloyfillItem = {
 
 export type PathResolveInfo = ReturnType<typeof getPathResolveInfo>
 
-export type MiniPackType =  'main' | 'sub' | 'independent'     // 主包 | 分包 | 独立分包
-export type MiniAppType =   'app' | 'game'
+export type MiniPackType = 'main' | 'sub' | 'independent'     // 主包 | 分包 | 独立分包
+export type MiniAppType = 'app' | 'game'
 
 export enum PackTypeMapping {
-  main= '主包',
-  sub ='分包',
+  main = '主包',
+  sub = '分包',
   independent = '独立分包',   // 还是分包， 只是不依赖主包模块
 }
+
 export enum AppTypeMapping {
   app = '小程序',
   game = '小游戏',
@@ -112,3 +122,14 @@ export type ScanPackagesResultInfo = {
    * */
   storagePath: string
 }
+
+export type WxsRefInfo = Array<{
+  wxsRender: Function, // wxs 渲染函数
+  moduleName: boolean,
+  inlineModuleName?: string,
+  isInline: boolean
+  wxsPath: string
+  wxmlPath: string,
+  templateList: string[]
+}>
+

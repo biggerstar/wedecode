@@ -268,7 +268,7 @@ function catchZ(code: string, cb: Function) {
         z[funcName] = hookZFunc()
         if (funcName.length < 12) return;
         z[funcName] = z[funcName].map((data: any) => {
-          if (typeof data[0] === 'string' && Array.isArray(data[1])) return data[1]
+          if (data[0] === '11182016' && Array.isArray(data[1])) return data[1]
           return data;
         })
       }
