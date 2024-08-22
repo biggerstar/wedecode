@@ -8,7 +8,7 @@ import cssbeautify from "cssbeautify";
 import {BaseDecompilation} from "./BaseDecompilation";
 import {createVM} from "@/utils/createVM";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
-import {appJsonExcludeKeys, pluginDirRename} from "@/constant";
+import {appJsonExcludeKeys, cssBodyToPageReg, pluginDirRename} from "@/constant";
 import {getZ} from "@/utils/getZ";
 import {tryDecompileWxml} from "@/utils/decompileWxml";
 import {AppCodeInfo, ModuleDefine, UnPackInfo} from "@/type";
@@ -408,7 +408,9 @@ export class AppDecompilation extends BaseDecompilation {
         }
         return item
       })
-      saveLocalFile(this.pathInfo.outputResolve(cssPath), cssbeautify(arr.join('')))
+      let cssText = arr.join('')
+      cssText = cssText.replace(cssBodyToPageReg, 'page{') 
+      saveLocalFile(this.pathInfo.outputResolve(cssPath), cssbeautify(cssText))
     }
     return () => void 0
   }
@@ -489,7 +491,7 @@ export class AppDecompilation extends BaseDecompilation {
       const wxss_path = styleEl.getAttribute('wxss:path')
       if (['', 'null', 'undefined', undefined, null].includes(wxss_path)) return
       let cssText = styleEl.innerHTML
-      cssText = cssText.replace(/body\s*\{/g, 'page{')  // 不太严谨， 后面使用 StyleSheet 进行处理
+      cssText = cssText.replace(cssBodyToPageReg, 'page{')  // 不太严谨， 后面使用 StyleSheet 进行处理
       saveLocalFile(this.pathInfo.outputResolve(wxss_path), cssbeautify(cssText))
       printLog(" Completed " + ` (${cssText.length}) \t` + colors.bold(colors.gray(wxss_path)))
     })

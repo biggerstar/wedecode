@@ -1,5 +1,8 @@
 export const isWindows = /^win/.test(process.platform);
 export const isMac = /^darwin/.test(process.platform);
+
+export const cssBodyToPageReg = /body\s*\{/g
+
 /**
  * 默认输出路径， 基于 inputPath 路径
  * */
