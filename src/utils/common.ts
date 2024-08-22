@@ -191,6 +191,10 @@ export function removeVM2ExceptionLine(code: string) {
   return code.replace(reg, '')
 }
 
+export function resetWxsRequirePath(p: string, resetString: string = '') {
+  return p.replaceAll('p_./', resetString).replaceAll('m_./', resetString)
+}
+
 /** 获取共同的最短根路径 */
 export function findCommonRoot(paths: string[]) {
   const splitPaths = paths.map(path => path.split('/').filter(Boolean));

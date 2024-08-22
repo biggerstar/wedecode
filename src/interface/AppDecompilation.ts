@@ -17,7 +17,7 @@ import {
   getParameterNames,
   isPluginPath, isWxAppid,
   jsBeautify,
-  printLog, replaceExt,
+  printLog, replaceExt, resetWxsRequirePath,
   sleep
 } from "@/utils/common";
 import {getAppPackCodeInfo} from "@/utils/getPackCodeInfo";
@@ -125,7 +125,7 @@ export class AppDecompilation extends BaseDecompilation {
       for (const moduleName in wxmlRefWxsMap) {
         const vSrc = wxmlRefWxsMap[moduleName]()
         if (typeof vSrc === 'string') {
-          const src: string = vSrc.replace('p_', '').replace('m_', '')
+          const src: string = resetWxsRequirePath(vSrc, './')
           this.wxsRefInfo[filepath].push({
             src: src,
             fileSrc: src.includes(':') ? src.split(':')[0] : src,
@@ -498,58 +498,59 @@ export class AppDecompilation extends BaseDecompilation {
     }
   }
 
-  private async decompileAppWXS() {
-    const decompilationWXS = this.DecompilationWXS
+  public functionToWXS(wxsFunc: Function) {
     const funcHeader = 'nv_module={nv_exports:{}};';
     const funcEnd = 'return nv_module.nv_exports;}';
     const matchReturnReg = /return\s*\(\{(.|\r|\t|\n)*?}\)/
     const wxsCodeRequireReg = /require\(.+?\(\);/g
-    const resetWxsRequirePath = (p: string) => p.replaceAll('p_./', './').replaceAll('m_./', './')
 
-    function functionToWXS(wxsFunc: Function) {
-      let code = wxsFunc.toString()
-      code = code.slice(code.indexOf(funcHeader) + funcHeader.length, code.lastIndexOf(funcEnd)).replaceAll('nv_', '')
-      code = code.replace(wxsCodeRequireReg, (matchString: string) => {
-        const newRequire = resetWxsRequirePath(matchString).replace('()', '')
-        // console.log(newRequire)
-        return newRequire
-      })
-      const matchInfo = matchReturnReg.exec(code)
-      const matchList = []
-      if (matchInfo) {
-        matchInfo.forEach(str => str.startsWith('return') && str.endsWith('})') && matchList.push(str))
-      }
-      matchList.forEach(returnStr => {
-        let newReturnString: string = ''
-        let temp = returnStr.replace('return', '').trim()
-        if (temp.startsWith('({') && temp.endsWith('})')) {
-          newReturnString = `return {${temp.substring(2, temp.length - 2)}}`
-          code = code.replace(returnStr, newReturnString)
-        }
-      })
-      return jsBeautify(code)
+    let code = wxsFunc.toString()
+    code = code.slice(code.indexOf(funcHeader) + funcHeader.length, code.lastIndexOf(funcEnd)).replaceAll('nv_', '')
+    code = code.replace(wxsCodeRequireReg, (matchString: string) => {
+      const newRequire = resetWxsRequirePath(matchString, './').replace('()', '')
+      // console.log(newRequire)
+      return newRequire
+    })
+    const matchInfo = matchReturnReg.exec(code)
+    const matchList = []
+    if (matchInfo) {
+      matchInfo.forEach(str => str.startsWith('return') && str.endsWith('})') && matchList.push(str))
     }
+    matchList.forEach(returnStr => {
+      let newReturnString: string = ''
+      let temp = returnStr.replace('return', '').trim()
+      if (temp.startsWith('({') && temp.endsWith('})')) {
+        newReturnString = `return {${temp.substring(2, temp.length - 2)}}`
+        code = code.replace(returnStr, newReturnString)
+      }
+    })
+    return jsBeautify(code)
+  }
 
-    // console.log(decompilationWXS)
-    for (const wxsPath in decompilationWXS) {   // 处理并保存 wxs 文件
+  private async decompileAppWXS() {
+    const DecompilationWXS = this.DecompilationWXS
+    const shortDecompilationWXS = {}
+
+    for (const wxsPath in DecompilationWXS) {   // 处理并保存 wxs 文件
+      const wxsOutputShortPath = resetWxsRequirePath(wxsPath, './')
+      shortDecompilationWXS[wxsOutputShortPath] = DecompilationWXS[wxsPath]
       if (path.extname(wxsPath) !== '.wxs') continue
-      const wxsFunc = decompilationWXS[wxsPath]
-      const wxsOutputShortPath = resetWxsRequirePath(wxsPath)
-      const wxsString = functionToWXS(wxsFunc)
+      const wxsFunc = DecompilationWXS[wxsPath]
+      const wxsString = this.functionToWXS(wxsFunc)
       // console.log(wxsOutputShortPath)
       saveLocalFile(this.pathInfo.outputResolve(wxsOutputShortPath), wxsString)
       printLog(" Completed " + ` (${wxsString.length}) \t` + colors.bold(colors.gray(wxsPath)))
     }
-    const shortDecompilationWXS = {}
-    for (const pathName in this.DecompilationWXS) {
-      shortDecompilationWXS[pathName.replace('m_', '').replace('p_', '')] = this.DecompilationWXS[pathName]
-    }
-    for (const referencerOwnPath in this.wxsRefInfo) {
+    
+    for (const referencerOwnPath/* 引用 wxs 的 wxml文件 */ in this.wxsRefInfo) {
       const wxsInPageList = this.wxsRefInfo[referencerOwnPath]
       wxsInPageList.forEach(item => {
-        let relativePath = path.relative(this.pathInfo.outputResolve(referencerOwnPath, '../'), this.pathInfo.outputResolve(item.fileSrc))
+        let relativePath = path.relative(
+          this.pathInfo.resolve(path.dirname(referencerOwnPath)), 
+          this.pathInfo.resolve(item.fileSrc)
+        )
         if (item.src.includes(":")) {
-          item.templateList.push(`<wxs module="${item.moduleName}">\n${functionToWXS(shortDecompilationWXS[item.src])}\n</wxs>`);
+          item.templateList.push(`<wxs module="${item.moduleName}">\n${this.functionToWXS(shortDecompilationWXS[item.src])}\n</wxs>`);
         } else {
           item.templateList.push(`<wxs module="${item.moduleName}" src="${relativePath}"/>`);
         }
@@ -590,7 +591,7 @@ export class AppDecompilation extends BaseDecompilation {
         const newPluginEntrys = {}
         for (const name in pluginEntrys) {
           const pluginFilePath = path.join(
-            this.packType === 'sub' ? this.pathInfo.packRootPath : './' ,
+            this.packType === 'sub' ? this.pathInfo.packRootPath : './',
             `${pluginDirRename[0]}/${appId}`, name
           )
           // console.log(pluginFilePath)
@@ -598,7 +599,7 @@ export class AppDecompilation extends BaseDecompilation {
         }
         Object.assign(allEntrys, newPluginEntrys)
       }
-      
+
       for (let wxmlPath in allEntrys) {
         let result = tryDecompileWxml(allEntrys[wxmlPath].f.toString(), z, defines[wxmlPath], xPool)
         if (result) {
