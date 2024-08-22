@@ -1,4 +1,5 @@
 import {createVM} from "./createVM";
+import {data} from "cheerio/lib/api/attributes";
 
 function restoreSingle(ops: any, withScope = false) {
   if (typeof ops == "undefined") return "";
@@ -266,11 +267,11 @@ function catchZ(code: string, cb: Function) {
       if (hookZFunc) {
         allFunctionMap[funcName] = hookZFunc
         z[funcName] = hookZFunc()
-        if (funcName.length < 12) return;
-        z[funcName] = z[funcName].map((data: any) => {
-          if (data[0] === '11182016' && Array.isArray(data[1])) return data[1]
-          return data;
-        })
+        z[funcName] = z[funcName]
+          .map((data: any) => {
+            if (Array.isArray(data) && data[0] === '11182016' && Array.isArray(data[1])) return data[1]
+            return data;
+          })
       }
     })
   }

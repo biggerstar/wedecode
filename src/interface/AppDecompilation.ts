@@ -17,7 +17,7 @@ import {
   getParameterNames,
   isPluginPath, isWxAppid,
   jsBeautify,
-  printLog, replaceExt, resetWxsRequirePath,
+  printLog, removeElement, replaceExt, resetWxsRequirePath,
   sleep
 } from "@/utils/common";
 import {getAppPackCodeInfo} from "@/utils/getPackCodeInfo";
@@ -53,6 +53,10 @@ export class AppDecompilation extends BaseDecompilation {
   public appConfig: Record<any, any> = {}
   public pluginNames: string[]
   private readonly wxsRefInfo: WxsRefInfo = []
+  /**
+   * 主包所有入口 ( 不包含分包 )
+   * */
+  public mainPackEntries: string[] = []
 
   /**
    * 所有在 page.json 中被引用的组件
@@ -138,14 +142,16 @@ export class AppDecompilation extends BaseDecompilation {
       const wxmlRefWxsInfo = this.DecompilationModules.modules[wxmlPath]
       for (const moduleName in wxmlRefWxsInfo) {
         const {n, func} = wxmlRefWxsInfo[moduleName]()
-        this.wxsRefInfo.push(<any>{
-          wxmlPath: wxmlPath,
-          wxsPath: resetWxsRequirePath(n).split(':')[0],
-          isInline: n.startsWith('m_'),
-          moduleName,
-          wxsRender: func,
-          templateList: []
-        })
+        if (n && func) {
+          this.wxsRefInfo.push(<any>{
+            wxmlPath: wxmlPath,
+            wxsPath: resetWxsRequirePath(n).split(':')[0],
+            isInline: n.startsWith('m_'),
+            moduleName,
+            wxsRender: func,
+            templateList: []
+          })
+        }
       }
     }
     if (this.packType === 'main') {
@@ -173,7 +179,7 @@ export class AppDecompilation extends BaseDecompilation {
   private async decompileAppJSON() {
     if (this.packType !== 'main') return
     await sleep(200)
-    const appConfig = this.appConfig
+    const appConfig: Record<string, any> = JSON.parse(this.codeInfo.appConfigJson)
     Object.assign(appConfig, appConfig.global)
     delete appConfig.global
     delete appConfig.page
@@ -198,11 +204,13 @@ export class AppDecompilation extends BaseDecompilation {
       delete appConfig.window['navigationBarBackgroundColor']
     }
 
-    const entrys = this.DecompilationModules?.entrys || {}
-    const entryList = Object.keys(entrys).map(str => replaceExt(str.replace('./', ''), ''))
-    if (appConfig.pages) {
-      appConfig.pages = arrayDeduplication(appConfig.pages.concat(entryList))
-    }
+    // const entrys = this.DecompilationModules?.entrys || {}
+    // const entryList = Object.keys(entrys).map(str => replaceExt(str.replace('./', ''), ''))
+    // if (appConfig.pages) {
+    //   appConfig.pages = arrayDeduplication(appConfig.pages.concat(entryList))
+    // }
+    
+    this.mainPackEntries = [...appConfig.pages]
     if (appConfig.subPackages) {
       let subPackages = [];
       appConfig.subPackages.forEach((subPackage: Record<any, any>) => {
@@ -214,12 +222,16 @@ export class AppDecompilation extends BaseDecompilation {
         if (Array.isArray(appConfig.pages)) {
           for (let pageString of appConfig.pages) {
             if (pageString.startsWith(root)) {
+              // console.log(pageString)
+              removeElement(this.mainPackEntries, pageString)
               newPages.push(pageString.replace(root, ''));
             }
           }
           subPackage.pages = newPages;
         }
-        delete subPackage.plugins
+        if (subPackage.plugins) {
+          subPackage.plugins = {} // 分包插件从远程替换成本地编译使用
+        }
         subPackages.push(subPackage);
       })
       subPackages = subPackages.filter(sub => (sub.pages || []).length > 0)
@@ -231,7 +243,9 @@ export class AppDecompilation extends BaseDecompilation {
       appConfig.subPackages = subPackages;
     }
     if (appConfig.pages) {
-      appConfig.pages =/*必须在subPackages 之后*/ arrayDeduplication<string>(appConfig.pages, (_, cur) => !this.allSubPackagePages.includes(cur))
+      // appConfig.pages = arrayDeduplication<string>(appConfig.pages, (_, cur) => !this.allSubPackagePages.includes(cur))
+      appConfig.pages =/*必须在subPackages 之后*/ this.mainPackEntries
+
     }
 
     if (appConfig.tabBar) {
@@ -259,6 +273,7 @@ export class AppDecompilation extends BaseDecompilation {
         return result
       })
     }
+
     if (this.convertPlugin) {
       appConfig.plugins = {} // 插件从远程替换成本地编译使用
     }
@@ -566,6 +581,10 @@ export class AppDecompilation extends BaseDecompilation {
         continue
       }
       const result = func()
+      if (!result.func) {
+        console.log(wxsPath, '[wxs] is not a function')
+        continue
+      }
       const wxsString = this.functionToWXS(result.func, wxsPath)
       saveLocalFile(this.pathInfo.resolve(wxsPath), wxsString)
       printLog(" Completed " + ` (${wxsString.length}) \t` + colors.bold(colors.gray(wxsPath)))
@@ -602,9 +621,14 @@ export class AppDecompilation extends BaseDecompilation {
     if (!code) return
     let xPool = []
     const xPoolReg = /var\s+x=\s*\[(.+)];\$?/g
-    const regRes = xPoolReg.exec(code)
-    if (regRes && regRes[0].includes('var x=[') && regRes[0].includes('.wxml')) {
-      xPool = [regRes[1]].toString().split(',').map(str => str.replaceAll("'", ''))
+    const regResList = code.match(xPoolReg)
+      .sort((a, b) => b.length - a.length) // 排序， 优先匹配内容最多的， 可能会遇到特殊情况，后面再看看
+    if (regResList.length && regResList[0].includes('var x=[') && regResList[0].includes('.wxml')) {
+      xPool = regResList[0]
+        .replaceAll('var x=[', '')
+        .replaceAll('];', '')
+        .split(',')
+        .map(str => str.replaceAll("'", ''))
     }
     const vm = createVM()
     vm.run(code)
@@ -680,7 +704,8 @@ export class AppDecompilation extends BaseDecompilation {
     const allPageAndComp = allPage
       .concat(this.allRefComponentList)
       .concat(this.allSubPackagePages)
-
+      .concat(this.appConfig.pages || [])
+    
     for (let pagePath of allPageAndComp) {
       // /* json */
       // console.log(replaceExt(pagePath, ".json"), pagePath)

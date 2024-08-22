@@ -145,6 +145,15 @@ export function printLog(log: string, opt: {
   clearScreen()
   slog(log)
 }
+/**
+ * 从数组中移除某个值
+ * */
+export function removeElement<T extends any>(arr: T[], elementToRemove: T): void{
+  const index = arr.indexOf(elementToRemove);
+  if (index > -1) {
+    arr.splice(index, 1);
+  }
+}
 
 /**
  * 获取公共的最长目录
