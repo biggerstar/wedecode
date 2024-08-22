@@ -15,13 +15,14 @@ import {AppCodeInfo, ModuleDefine, UnPackInfo} from "@/type";
 import {
   arrayDeduplication,
   getParameterNames,
-  isPluginPath,
+  isPluginPath, isWxAppid,
   jsBeautify,
   printLog, replaceExt,
   sleep
 } from "@/utils/common";
 import {getAppPackCodeInfo} from "@/utils/getPackCodeInfo";
 import {JSDOM} from "jsdom";
+import {isDev} from "@/bin/wedecode/enum";
 
 /**
  * 反编译小程序
@@ -40,7 +41,7 @@ export class AppDecompilation extends BaseDecompilation {
   /**
    * 所有插件的所有各种的模块定义
    * */
-  private readonly PLUGINS: Record<string, ModuleDefine> = {}
+  private readonly WXML_PLUGINS: Record<string, ModuleDefine> = {}
   private DecompilationWXS?: Record<string, Function>
   /**
    * 是否将第三方的远程插件转换变成本地离线使用
@@ -76,7 +77,6 @@ export class AppDecompilation extends BaseDecompilation {
     }
     console.log(loadInfo)
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
-    // console.log(code)
     if (!code) {
       if (this.packType === 'main') {
         console.log(colors.red('\u274C  没有找到包特征文件'))
@@ -106,11 +106,14 @@ export class AppDecompilation extends BaseDecompilation {
       const global = {}
       if (name.startsWith('$gwx_wx')) { // 插件处理
         const appId = name.replace('$gwx_', '') // 插件APPID
+        if (!isWxAppid(appId)) {
+          continue
+        }
         const func = vm.sandbox[name]
         try {
           // 将所有的 $gwx_  加载到 global 对象中， window.DecompilationModules 是 global 的引用
           func(void 0, global)
-          this.PLUGINS[appId] = global as any
+          this.WXML_PLUGINS[appId] = global as any
         } catch (e) {
         }
       }
@@ -390,8 +393,10 @@ export class AppDecompilation extends BaseDecompilation {
             return typeof item[1] === 'number' ? `${item[1]}rpx` : ''
           } else if (type === 2) {
             if (typeof item[1] === 'string') {
-              const relativePath = path.join(path.relative(path.dirname(cssPath), this.pathInfo.outputPath), item[1])
-              // console.log(relativePath)
+              const relativePath = path.relative(
+                this.pathInfo.resolve(path.dirname(cssPath)),
+                this.pathInfo.resolve(item[1]),
+              )
               return `@import "${relativePath}";`
             }
             return ''
@@ -409,23 +414,28 @@ export class AppDecompilation extends BaseDecompilation {
   }
 
   private async decompileAppWXSSWithRpx() {
-    const reg = /setCssToHead\(.+?}\)\(\)/g
+    const globalSetMatchReg = /setCssToHead\(.+?}\)\(\)/g
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     code = code.replaceAll('return rewritor;', 'return ()=> ({file, info});')
     code = code.replaceAll('__COMMON_STYLESHEETS__[', '__COMMON_STYLESHEETS_HOOK__[')
     // code = code.replaceAll('var setCssToHead', 'var __setCssToHead__')
+    code = code.replaceAll(';__wxAppCode__', ';\n__wxAppCode__')
     const vm = createVM({
       sandbox: {__COMMON_STYLESHEETS_HOOK__: {}}
     })
     vm.run(code)
-    /* 拦截直接执行的全局 css */
+    /* 拦截直接执行 的 全局 css */
     let lastMatch = null
     do {
-      lastMatch = reg.exec(code)
+      lastMatch = globalSetMatchReg.exec(code)
       if (!lastMatch) break
-      const cssSeedCode = lastMatch[0]
-      const func = new Function('setCssToHead', cssSeedCode)
-      func(this._setCssToHead.bind(this))
+      const cssSeedCode: string = lastMatch[0]
+      try {
+        const func = new Function('setCssToHead', cssSeedCode)
+        func(this._setCssToHead.bind(this))
+      } catch (e) {
+        console.log(e.message)
+      }
     } while (lastMatch)
 
     /* 拦截组件的 css */
@@ -438,9 +448,8 @@ export class AppDecompilation extends BaseDecompilation {
     /* 拦截 @import 引入的的公共 css */
     const __COMMON_STYLESHEETS_HOOK__ = vm.sandbox.__COMMON_STYLESHEETS_HOOK__ || {}
     for (const cssPath in __COMMON_STYLESHEETS_HOOK__) {
-      const wxssOutputPath = path.relative(this.pathInfo.outputPath, this.pathInfo.resolve(cssPath))
       const astList = __COMMON_STYLESHEETS_HOOK__[cssPath]
-      this._setCssToHead(astList, null, {path: wxssOutputPath})
+      this._setCssToHead(astList, null, {path: cssPath})
     }
   }
 
@@ -576,16 +585,20 @@ export class AppDecompilation extends BaseDecompilation {
     getZ(code, (z: Record<string, any[]>) => {
       const {entrys, defines} = this.DecompilationModules
       const allEntrys = {...entrys}
-      for (const appId in this.PLUGINS) {
-        const pluginEntrys = this.PLUGINS[appId].entrys
+      for (const appId in this.WXML_PLUGINS) {
+        const pluginEntrys = this.WXML_PLUGINS[appId].entrys
         const newPluginEntrys = {}
         for (const name in pluginEntrys) {
-          const pluginFilePath = path.join(this.pathInfo.packRootPath, `${pluginDirRename[0]}/${appId}`, name)
+          const pluginFilePath = path.join(
+            this.packType === 'sub' ? this.pathInfo.packRootPath : './' ,
+            `${pluginDirRename[0]}/${appId}`, name
+          )
+          // console.log(pluginFilePath)
           newPluginEntrys[pluginFilePath] = pluginEntrys[name]
         }
         Object.assign(allEntrys, newPluginEntrys)
       }
-      // console.log(allEntrys)
+      
       for (let wxmlPath in allEntrys) {
         let result = tryDecompileWxml(allEntrys[wxmlPath].f.toString(), z, defines[wxmlPath], xPool)
         if (result) {
@@ -663,18 +676,17 @@ export class AppDecompilation extends BaseDecompilation {
     printLog(` \u25B6 生成页面和组件构成必要的默认文件成功. \n`, {isStart: true})
   }
 
-  public async decompileAll() {
+  public async decompileAll(options: { usePx?: boolean } = {}) {
     super.decompileAll()
     /* 开始编译 */
     await this.initApp()
     await this.decompileAllJSON()
     await this.decompileAppJSON() // 在 pageJson 解析后， 之后使用经过处理的 app.json 如果存在 app.json 则覆盖原来的 json
     await this.decompileAppJS()
-    try {
+    if (options.usePx) {
+      await this.decompileAppWXSS()
+    } else {
       await this.decompileAppWXSSWithRpx() // 优先 rpx 单位解析 
-    } catch (e) {
-      console.log(e.message)
-      await this.decompileAppWXSS()  // 降级方案，使用 px 解析
     }
     await this.decompileAppWXML()
     await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行 
@@ -682,7 +694,7 @@ export class AppDecompilation extends BaseDecompilation {
     /* ----------------------------------- */
     await this.generateDefaultAppFiles()
     await this.generaProjectConfigFiles()
-    if (!process.env.DEV) {
+    if (!isDev) {
       await this.removeCache()
     }
   }

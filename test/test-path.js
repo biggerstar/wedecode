@@ -6,7 +6,7 @@ const globPathList = [
   // linuxGlob
   '/home/*/.config/wx95b6ffff5caf289e/WeChat/Applet/*'
 ]
-function isWxAppid(str) {
+function isAppid(str) {
   const reg = /^wx[0-9a-f]{15,18}$/i
   str = str.trim()
   return str.length === 18 && reg.test(str)
@@ -31,7 +31,7 @@ function findWxAppIdPath(_path) {
   let newPathList = [...partList]
   for (const index in partList.reverse()) {
     const dirName = partList[index]
-    if (isWxAppid(dirName)) {
+    if (isAppid(dirName)) {
       break
     }
     newPathList.pop()

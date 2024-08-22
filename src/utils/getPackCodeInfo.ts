@@ -3,7 +3,7 @@ import {AppCodeInfo, GameCodeInfo, PathResolveInfo} from "@/type";
 import {readLocalFile} from "@/utils/fs-process";
 
 /**
- * 获取包中主要的一些代码文件
+ * 获取 APP 包中主要的一些代码文件
  * */
 export function getAppPackCodeInfo(pathInfo: PathResolveInfo): AppCodeInfo {
   function __readFile(path: string) {
@@ -31,7 +31,7 @@ export function getAppPackCodeInfo(pathInfo: PathResolveInfo): AppCodeInfo {
 }
 
 /**
- * 获取包中主要的一些代码文件
+ * 获取 GAME 包中主要的一些代码文件
  * */
 export function getGamePackCodeInfo(pathInfo: PathResolveInfo): GameCodeInfo {
   function __readFile(path: string) {

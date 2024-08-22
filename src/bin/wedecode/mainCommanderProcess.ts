@@ -58,6 +58,9 @@ export async function startMainCommanderProcess(args: string[], argMap: Record<s
   // 经过下面转换， 文件输出位置最终都会在改小程序包同级目录下的 __OUTPUT__ 文件夹中输出
   await startCacheQuestionProcess(isClear, config.inputPath, config.outputPath)
   const decompilationController = new DecompilationController(config.inputPath, config.outputPath)
+  decompilationController.setState({
+    usePx: argMap.px,
+  })
   await decompilationController.startDecompilerProcess()
   if (argMap.openDir) {
     console.log('\n \u25B6  打开文件管理器: ', path.resolve(config.outputPath))

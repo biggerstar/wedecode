@@ -301,8 +301,10 @@ function elemToString(elem: Record<any, any>, dep: any) {
 
   if (isTextTag(elem)) {
     //In comment, you can use typify text node, which beautify its code, but may destroy ui.
-    //So, we use a "hack" way to solve this problem by letting typify program stop when face textNode
-    let str = new String(wxmlify(elem.content, true));
+    //So, we use a "hack" way to solve this problem by letting typify program stop when face textNode\
+    const StringC = String;
+    String()
+    let str = new StringC(wxmlify(elem.content, true));
     str['textNode'] = 1;
     return wxmlify(str, true);//indent.repeat(dep)+wxmlify(elem.content.trim(),true)+"\n";
   }
@@ -363,9 +365,9 @@ function getDecompiledWxml(state: any, code: string, z: {}, rDs: any, xPool: str
   return result.join("")
 }
 
-export function tryDecompileWxml(code: string, z: Record<string, any[]>, define: any, xPool: string[]): string {
+export function tryDecompileWxml(fCode: string, z: Record<string, any[]>, define: any, xPool: string[]): string {
   try {
-    return getDecompiledWxml([null], code, z, define, xPool)
+    return getDecompiledWxml([null], fCode, z, define, xPool)
   } catch (e) {
     return ''
   }

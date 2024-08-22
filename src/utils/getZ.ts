@@ -7,6 +7,7 @@ function restoreSingle(ops: any, withScope = false) {
     if (value.startsWith('{') && value.endsWith('}')) return withScope ? value : "{{(" + value + ")}}";
     return withScope ? value : "{{" + value + "}}";
   }
+
   // function scope(value: string) {
   //   const isObject = value.startsWith('{') && value.endsWith('}')
   //   const hasPureVariableObj = isObject && !(value.includes('"') || value.includes("'")) && value.includes(':') // 是否是纯变量对象，比如不包含 "" 字符串等对象 
@@ -258,12 +259,18 @@ function catchZ(code: string, cb: Function) {
   if (allGwxFunctionMatch) {
     allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
       const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
-      const found = funcReg.exec(funcString)
+      const funcName = funcReg.exec(funcString)?.[1]
+      if (!funcName) return
       vm.run(funcString)
-      const hookZFunc = vm.sandbox[`gz$gwx${found[1]}`]
+      const hookZFunc = vm.sandbox[`gz$gwx${funcName}`]
       if (hookZFunc) {
-        allFunctionMap[found[1]] = hookZFunc
-        z[found[1]] = hookZFunc()
+        allFunctionMap[funcName] = hookZFunc
+        z[funcName] = hookZFunc()
+        if (funcName.length < 12) return;
+        z[funcName] = z[funcName].map((data: any) => {
+          if (typeof data[0] === 'string' && Array.isArray(data[1])) return data[1]
+          return data;
+        })
       }
     })
   }

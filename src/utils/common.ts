@@ -228,7 +228,7 @@ export function getParameterNames(fn: Function) {
  * 判断是否是wx 的 appid
  * */
 export function isWxAppid(str: string) {
-  const reg = /^wx[0-9a-f]{15,18}$/i
+  const reg = /^wx[0-9a-f]{18}$/i
   str = str.trim()
   return str.length === 18 && reg.test(str)
 }

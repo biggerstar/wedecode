@@ -4,11 +4,16 @@ import colors from "picocolors";
 import {glob} from "glob";
 import {AppMainPackageNames} from "@/bin/wedecode/enum";
 import {Decompilation} from "@/interface/Decompilation";
+import {deepmerge} from "@biggerstar/deepmerge";
+
+export type DecompilationControllerState = {
+  usePx: boolean,
+}
 
 export class DecompilationController {
   public readonly inputPath: string
   public readonly outputPath: string
-
+  public config: DecompilationControllerState
   constructor(inputPath: string, outputPath: string) {
     if (!inputPath) {
       throw new Error('inputPath 是必须的')
@@ -18,6 +23,13 @@ export class DecompilationController {
     }
     this.inputPath = inputPath
     this.outputPath = outputPath
+    this.config = {
+      usePx: false,
+    }
+  }
+  
+  public setState(opt: Partial<DecompilationControllerState>){
+    deepmerge(this.config, opt)    
   }
 
   /**
@@ -25,7 +37,9 @@ export class DecompilationController {
    * */
   async singlePackMode(wxapkgPath: string, outputPath: string): Promise<void> {
     const decompilation = new Decompilation(wxapkgPath, outputPath)
-    await decompilation.decompileAll()
+    await decompilation.decompileAll({
+      usePx: this.config.usePx,
+    })
   }
 
   /**

@@ -23,7 +23,7 @@ export class Decompilation {
     this.packInfo = await UnpackWxapkg.unpackWxapkg(this.packPath, this.outputPath)
   }
 
-  public async decompileAll() {
+  public async decompileAll(options: { usePx?: boolean } = {}) {
     // TODO resolveAlias
     await this.unpackWxapkg()
     if (this.packInfo.appType === 'game') {
@@ -34,7 +34,7 @@ export class Decompilation {
       // 小程序
       const decompilationApp = new AppDecompilation(this.packInfo)
       decompilationApp.convertPlugin = true
-      await decompilationApp.decompileAll()
+      await decompilationApp.decompileAll(options)
     }
     printLog(`\n ✅  ${colors.bold(colors.green(PackTypeMapping[this.packInfo.packType] + '反编译结束!'))}`, {isEnd: true})
   }

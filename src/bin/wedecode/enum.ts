@@ -1,4 +1,5 @@
 import {PUBLIC_OUTPUT_PATH} from "@/constant";
+import process from "node:process";
 /**
  * 主包文件名特征
  * */
@@ -24,3 +25,5 @@ export enum YesOrNoEnum {
   yes = '是',
   no = '否',
 }
+
+export const isDev = process.env.DEV === 'true'

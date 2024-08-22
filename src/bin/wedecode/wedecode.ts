@@ -22,6 +22,7 @@ program
   .option("-o, --out <out-path>", '指定编译输出地目录， 正常是主包目录')
   .option("--openDir", ' 是否打开查看编译后的产物目录')
   .option("--clear", '是否清空旧的产物')
+  .option("--px", '是否使用 px 像素单位解析 css， 默认使用的是 rpx 单位')
   .action(async (argMap: Record<any, any>, options: Record<any, any>) => {
     await sleep(200)
     const args = options.args || []

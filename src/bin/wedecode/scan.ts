@@ -1,5 +1,5 @@
 import {glob} from "glob";
-import {clearScreen, isWxAppid} from "@/utils/common";
+import {clearScreen} from "@/utils/common";
 import colors from "picocolors";
 import {PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo} from "@/type";
 import axios, {AxiosRequestConfig} from "axios";
@@ -96,7 +96,7 @@ async function sacnPackages(manualScanPath: string = ''): Promise<SacnPackagesPa
       ${colors.red('未找到小程序包 ')}  ${colors.yellow(path.resolve(manualScanPath || './'))}
       
       \u25B6 请注意扫描功能还在测试阶段，如果出现问题请到 github 反馈
-      \u25B6 提交时请带上您电脑中小程序的 '${colors.bold('wxapkg 包存放路径')}' 和 '${colors.bold('微信版本号')}'
+      \u25B6 提交时请带上您电脑中小程序的 '${colors.bold('微信官方的 wxapkg 包存放路径')}' 和 '${colors.bold('微信版本号')}'
       \u25B6 https://github.com/biggerstar/wedecode/issues
       `)
     stopCommander()
