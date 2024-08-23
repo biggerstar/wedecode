@@ -11,8 +11,9 @@ export enum CacheClearEnum {
 }
 
 export enum OperationModeEnum {
-  autoScan = '自动扫描小程序包',
-  manualScan = '手动设定扫描目录',
+  autoScan = '\u25B6 自动扫描小程序包 (Beta)',
+  manualScan = '\u25B6 手动设定扫描目录',
+  manualDir = '\u25B6 直接指定包路径( 非扫描 )',
 }
 
 export enum StreamPathDefaultEnum {

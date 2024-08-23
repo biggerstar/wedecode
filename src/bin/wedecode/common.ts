@@ -33,8 +33,8 @@ export function createNewVersionUpdateNotice(): {
       await sleep(200)
       if (updateInfo && updateInfo.latest) {
         printLog(`
-    🎉  wedecode 有新版本:  v${pkg.version}  ==>  v${updateInfo.latest}
-    🎄  您可以直接使用  ${colors.blue('npm i wedecode -g')}  进行更新
+    🎉  wedecode 有新版本:  v${pkg.version}  -->  v${updateInfo.latest}
+    🎄  您可以直接使用  ${colors.blue(`npm i -g wedecode@${updateInfo.latest}`)}  进行更新
     💬  npm地址:  https://www.npmjs.com/package/wedecode  
       \n`, {
           isStart: true,

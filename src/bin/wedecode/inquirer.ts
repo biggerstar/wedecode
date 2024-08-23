@@ -32,6 +32,7 @@ const prompts = {
           choices: [
             OperationModeEnum.autoScan,
             OperationModeEnum.manualScan,
+            OperationModeEnum.manualDir,
           ],
         },
       ]
@@ -91,7 +92,7 @@ const prompts = {
       [
         {
           type: 'input',
-          message: `\n输入 ${colors.blue('wxapkg文件')} 或 ${colors.blue('目录')} 默认为( ${colors.yellow('./')} ): `,
+          message: `输入 ${colors.blue('wxapkg文件')} 或 ${colors.blue('目录')} 默认为( ${colors.yellow('./')} ): `,
           name: 'inputPath',
           validate(input: any, _): any {
             return checkExistsWithFilePath(path.resolve(input), {throw: true});
