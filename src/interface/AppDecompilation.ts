@@ -13,6 +13,7 @@ import {getZ} from "@/utils/getZ";
 import {tryDecompileWxml} from "@/utils/decompileWxml";
 import {AppCodeInfo, ExecuteAllGwxFunction, ModuleDefine, UnPackInfo, WxmlRenderFunction, WxsRefInfo} from "@/type";
 import {
+  arrayDeduplication,
   getParameterNames,
   isPluginPath, isWxAppid, jsBeautify,
   printLog, removeElement, resetPluginPath, resetWxsRequirePath,
@@ -101,7 +102,7 @@ export class AppDecompilation extends BaseDecompilation {
       delete appConfig.window['navigationBarBackgroundColor']
     }
 
-    this.mainPackEntries = [...appConfig.pages]
+    this.mainPackEntries = arrayDeduplication([...appConfig.pages])
     if (appConfig.subPackages) {
       let subPackages = [];
       appConfig.subPackages.forEach((subPackage: Record<any, any>) => {
@@ -118,7 +119,7 @@ export class AppDecompilation extends BaseDecompilation {
               newPages.push(pageString.replace(root, ''));
             }
           }
-          subPackage.pages = newPages;
+          subPackage.pages = arrayDeduplication(newPages);
         }
         if (subPackage.plugins) {
           subPackage.plugins = {} // 分包插件从远程替换成本地编译使用
@@ -135,7 +136,6 @@ export class AppDecompilation extends BaseDecompilation {
     }
     if (appConfig.pages) {
       appConfig.pages =/*必须在subPackages 之后*/ this.mainPackEntries
-
     }
 
     if (appConfig.tabBar) {

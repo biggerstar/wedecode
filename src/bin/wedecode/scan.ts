@@ -5,22 +5,15 @@ import {PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo} from "@
 import axios, {AxiosRequestConfig} from "axios";
 import path from "node:path";
 import prompts from "@/bin/wedecode/inquirer";
-import {AppMainPackageNames, YesOrNoEnum} from "@/bin/wedecode/enum";
+import {AppMainPackageNames, globPathList, YesOrNoEnum} from "@/bin/wedecode/enum";
 import {findWxAppIdPath, getPathSplitList, stopCommander} from "@/bin/wedecode/common";
-
-const globPathList: string[] = [ // 末尾不要带 * 号
-  // macGlob
-  '/Users/*/Library/Containers/*/Data/.wxapplet/packages',
-  // winGlob
-  'C:\\Users\\*\\Documents\\WeChat Files\\Applet',
-  // linuxGlob
-  '/home/*/.config/WeChat/Applet'
-]
+import fs from "node:fs";
 
 /**
  * 判断是否是个可能扫描大量文件系统的路径
  * */
 function inDangerScanPathList(_path: string) {
+  _path = path.resolve(_path)
   let partList: string[]
   if (_path.includes(':')) _path = _path.split(':')[1] // 去掉盘符
   partList = getPathSplitList(_path).partList
@@ -117,20 +110,29 @@ export async function startSacnPackagesProcess(manualScanPath?: string): Promise
       value: "appName"
     },
     {
+      name: "修改时间",
+      value: "updateDate"
+    },
+    {
       name: "描述",
       value: "description"
     },
   ]
   const rowsPromiseList = foundPackageList
     .map(async (item: SacnPackagesPathItem) => {
+      const statInfo = fs.statSync(item.storagePath)
+      const date = new Date(statInfo.mtime)
+      const dateString = `${date.getMonth() + 1}/${date.getDate()} ${date.toLocaleTimeString()}`
       if (!item.isAppId) return {
         appName: item.appId,
+        updateDate: dateString,
         description: item.storagePath
       }
       const appId = item.appId
       const {nickname, description} = await getWxAppInfo(appId);
       return {
         appName: nickname || appId,
+        updateDate: dateString,
         description: description || '',
       };
     })

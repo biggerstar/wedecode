@@ -7,6 +7,7 @@ import openFileExplorer from "open-file-explorer";
 import {sleep} from "@/utils/common";
 import prompts from "@/bin/wedecode/inquirer";
 import {DecompilationController} from "@/DecompilationController";
+import colors from "picocolors";
 
 /**
  * 通过命令行交互获取输入和输出路径
@@ -65,6 +66,8 @@ export async function startMainCommanderProcess(args: string[], argMap: Record<s
   if (argMap.openDir) {
     console.log('\n \u25B6  打开文件管理器: ', path.resolve(config.outputPath))
     openFileExplorer(config.outputPath, () => void 0)
+  }else {
+    console.log('\n \u25B6  输出路径: ', colors.yellow(path.resolve(config.outputPath)))
   }
   await sleep(500)
   return true

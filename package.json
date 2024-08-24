@@ -1,6 +1,6 @@
 {
   "name": "wedecode",
-  "version": "0.6.3",
+  "version": "0.6.6",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {
@@ -13,7 +13,7 @@
     "build": "vite build",
     "test:cmd": "wedecode",
     "test:cmd:dev": "DEV=true  wedecode",
-    "test:cmd:args": "wedecode -o OUTPUT",
+    "test:cmd:args": "DEV=true wedecode -o OUTPUT",
     "link": "vite build && pnpm link --dir= ./",
     "unlink": "pnpm unlink",
     "release:npm": "vite build && npm publish",

@@ -34,7 +34,7 @@ SUPPORT
 - [x] **小程序包扫描**
 
 TODO
-- [ ] 小程序自动解密
+- [ ] 小程序自动解密( 最近几年的电脑端包都不需要解密，以后看情况跟进 )
 
 ### 准备
 
@@ -70,6 +70,8 @@ TODO
   wedecode ./dirname
 # 或者: 将编译结果输出到指定目录 --out 为输出目录
   wedecode ./  --out ./output_path
+# 你也可以预设任意命令行参数， 在交互时将不会向您提问， 例如
+  wedecode --out output_path --clear --openDir
 ```
 
 使用源码运行

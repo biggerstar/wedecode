@@ -6,10 +6,21 @@ import {PUBLIC_OUTPUT_PATH} from "@/constant";
 import {CacheClearEnum, YesOrNoEnum, OperationModeEnum} from "@/bin/wedecode/enum";
 // @ts-ignore
 import {SelectTableTablePrompt} from "@biggerstar/inquirer-selectable-table";
-import {sleep} from "@/utils/common";
+import {clearScreen, sleep} from "@/utils/common";
+import process from "node:process";
+import {ScanTableOptions} from "@/type";
 
 inquirer.registerPrompt("table", SelectTableTablePrompt);
+process.stdout.setMaxListeners(200)
 
+async function onResize() {
+  if (lastTableOptions) {
+    await prompts.showScanPackTable(lastTableOptions)
+    clearScreen()
+  }
+}
+
+let lastTableOptions: ScanTableOptions = null
 let online: boolean = false
 
 async function checkOnline() {
@@ -69,8 +80,16 @@ const prompts = {
       ]
     )
   },
-  async showScanPackTable(opt: { columns: any[]; rows: any[] }) {
-    return inquirer['prompt'](
+  async showScanPackTable(opt: ScanTableOptions) {
+    lastTableOptions = opt
+    if (!onResize['onResize']) {
+      process.stdout.on('resize', onResize)
+      onResize['onResize'] = true
+    }
+    await sleep(50)
+    clearScreen()
+    const part = process.stdout.columns / 10
+    const result = await inquirer['prompt'](
       [
         {
           type: "table",
@@ -79,13 +98,18 @@ const prompts = {
           pageSize: 6,
           showIndex: true,
           tableOptions: {
-            colWidths: [5, 24, 80]
+            // wordWrap: true,
+            wrapOnWordBoundary: true,
+            colWidths: [part / 2, part * 2, part * 2, part * 5.3].map(n => Math.floor(n))
           },
           columns: opt.columns || [],
           rows: opt.rows || []
         }
       ]
     )
+    onResize['onResize'] = false
+    process.stdout.off('resize', onResize)
+    return result
   },
   async questionInputPath() {
     return inquirer['prompt'](

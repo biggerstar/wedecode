@@ -99,7 +99,7 @@ export class DecompilationController {
       }
     }
     if (isDev) {
-      deepmerge(defaultConfigData, DEV_defaultConfigData)
+      Object.assign(defaultConfigData.setting, DEV_defaultConfigData.setting)
     }
     let finallyConfig = {}
     const projectPrivateConfigString = readLocalFile(projectPrivateConfigJsonPath)

@@ -151,3 +151,4 @@ export type WxsRefInfo = Array<{
 export type DecompilationControllerState = {
   usePx: boolean,
 }
+export type ScanTableOptions =  { columns: any[]; rows: any[] }

@@ -1,5 +1,18 @@
 import {PUBLIC_OUTPUT_PATH} from "@/constant";
 import process from "node:process";
+
+export const globPathList: string[] = [ // 末尾不要带 * 号
+  // macGlob
+  '/Users/*/Library/Containers/*/Data/.wxapplet/packages',
+  'C:\\Users\\weixin\\WeChat Files\\',
+  'D:\\Users\\weixin\\WeChat Files\\',
+  // winGlob
+  'C:\\Users\\*\\Documents\\WeChat Files\\Applet',
+  // linuxGlob
+  '/home/*/.config/WeChat/Applet'
+]
+
+
 /**
  * 主包文件名特征
  * */

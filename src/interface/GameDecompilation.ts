@@ -5,9 +5,7 @@ import {printLog, sleep} from "@/utils/common";
 import {GameCodeInfo, UnPackInfo} from "@/type";
 import {BaseDecompilation} from "@/interface/BaseDecompilation";
 import {getGamePackCodeInfo} from "@/utils/getPackCodeInfo";
-import process from "node:process";
 import {GameJsonExcludeKeys} from "@/constant";
-import {isDev} from "@/bin/wedecode/enum";
 
 /**
  * 反编译工具类入口
@@ -95,11 +93,6 @@ export class GameDecompilation extends BaseDecompilation {
     await this.decompileGameJSON()
     await this.decompileGameJS()
     await this.decompileAppWorkers()
-    /* ----------------------------------- */
-    await this.generaProjectConfigFiles()
-    if (!isDev) {
-      await this.removeCache()
-    }
   }
 }
 
