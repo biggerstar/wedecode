@@ -59,7 +59,7 @@ export async function startMainCommanderProcess(args: string[], argMap: Record<s
   await startCacheQuestionProcess(isClear, config.inputPath, config.outputPath)
   const decompilationController = new DecompilationController(config.inputPath, config.outputPath)
   decompilationController.setState({
-    usePx: argMap.px,
+    usePx: argMap.px || false,
   })
   await decompilationController.startDecompilerProcess()
   if (argMap.openDir) {

@@ -133,8 +133,9 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
                 });
                 break;
               case "_m": {
-                if (dec.init.arguments[2].elements.length > 0)
+                if (dec.init.arguments[2].elements.length > 0) {
                   throw Error("Noticable generics content: " + dec.init.arguments[2].toString());
+                }
                 let mv = {};
                 let name = null, base = 0;
                 for (let x of dec.init.arguments[1].elements) {
@@ -157,8 +158,9 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
               }
                 break;
               case "_mz": {
-                if (dec.init.arguments[3].elements.length > 0)
+                if (dec.init.arguments[3].elements.length > 0) {
                   throw Error("Noticable generics content: " + dec.init.arguments[3].toString());
+                }
                 let mv = {};
                 let name = null, base = 0;
                 for (let x of dec.init.arguments[2].elements) {
@@ -326,7 +328,18 @@ function elemToString(elem: Record<any, any>, dep: any) {
     }
   }
   let ret = indent.repeat(dep) + "<" + elem.tag;
-  for (let v in elem.v) ret += " " + v + (elem.v[v] !== null ? "=\"" + wxmlify(elem.v[v]) + "\"" : "");
+  for (let attr in elem.v) {
+    if (attr.toString().trim().startsWith("wx:") && typeof elem.v[attr] == "string") {
+      if (elem.v[attr].startsWith("{{({") && elem.v[attr].endsWith("})}}")) {
+        const data = elem.v[attr].slice(4, elem.v[attr].length - 4)
+        if (!data.includes(",") && data.split(":").length == 2) {
+          // example {{uuid:uuid}}
+          elem.v[attr] = `{{${data}}}`;
+        }
+      }
+    }
+    ret += " " + attr + (elem.v[attr] !== null ? "=\"" + wxmlify(elem.v[attr]) + "\"" : "");
+  }
   if (elem.son.length == 0) {
     if (longerList.includes(elem.tag)) return ret + " />\n";
     else return ret + "></" + elem.tag + ">\n";
@@ -369,6 +382,7 @@ export function tryDecompileWxml(fCode: string, z: Record<string, any[]>, define
   try {
     return getDecompiledWxml([null], fCode, z, define, xPool)
   } catch (e) {
+    console.log('[tryDecompileWxml]', e.message)
     return ''
   }
 }

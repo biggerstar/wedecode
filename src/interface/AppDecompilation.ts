@@ -11,38 +11,22 @@ import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {appJsonExcludeKeys, cssBodyToPageReg, pluginDirRename} from "@/constant";
 import {getZ} from "@/utils/getZ";
 import {tryDecompileWxml} from "@/utils/decompileWxml";
-import {AppCodeInfo, ModuleDefine, UnPackInfo, WxsRefInfo} from "@/type";
+import {AppCodeInfo, ExecuteAllGwxFunction, ModuleDefine, UnPackInfo, WxmlRenderFunction, WxsRefInfo} from "@/type";
 import {
-  arrayDeduplication,
   getParameterNames,
-  isPluginPath, isWxAppid,
-  jsBeautify,
-  printLog, removeElement, replaceExt, resetWxsRequirePath,
+  isPluginPath, isWxAppid, jsBeautify,
+  printLog, removeElement, resetPluginPath, resetWxsRequirePath,
   sleep
 } from "@/utils/common";
 import {getAppPackCodeInfo} from "@/utils/getPackCodeInfo";
 import {JSDOM} from "jsdom";
-import {isDev} from "@/bin/wedecode/enum";
-import {deepmerge} from "@biggerstar/deepmerge";
+import {data} from "cheerio/lib/api/attributes";
 
 /**
  * 反编译小程序
  * */
 export class AppDecompilation extends BaseDecompilation {
   private codeInfo: AppCodeInfo
-  private allSubPackagePages: string[] = []
-  /**
-   *
-   * */
-  private allRefComponentList: string[] = []
-  /**
-   * 不包含插件的所有各种的模块定义
-   * */
-  private DecompilationModules?: ModuleDefine
-  /**
-   * 所有插件的所有各种的模块定义
-   * */
-  private readonly WXML_PLUGINS: Record<string, ModuleDefine> = {}
   /**
    * 是否将第三方的远程插件转换变成本地离线使用
    * */
@@ -51,8 +35,6 @@ export class AppDecompilation extends BaseDecompilation {
    * 包的配置
    * */
   public appConfig: Record<any, any> = {}
-  public pluginNames: string[]
-  private readonly wxsRefInfo: WxsRefInfo = []
   /**
    * 主包所有入口 ( 不包含分包 )
    * */
@@ -68,12 +50,10 @@ export class AppDecompilation extends BaseDecompilation {
 
   /**
    * 初始化, 所有后续反编译且不会被动态改变的所需要的信息都在这里加载
-   * 记住一个准则： 读取都使用 packRootPath 路径， 保存都使用 outputPath 路径
    * */
   private async initApp() {
     this.codeInfo = getAppPackCodeInfo(this.pathInfo)
-    this.appConfig = JSON.parse(this.codeInfo.appConfigJson || '{}')
-    this.pluginNames = Object.values(this.appConfig.plugins || []).map((item: Record<any, any>) => item.provider) || []
+    this.appConfig = JSON.parse(readLocalFile(this.pathInfo.outputResolve(this.pathInfo.appJsonPath)) || '{}')
 
     //  用户 polyfill
     const loadInfo = {}
@@ -87,89 +67,6 @@ export class AppDecompilation extends BaseDecompilation {
         console.log(colors.red('\u274C  没有找到包特征文件'))
       }
       return
-    }
-    const vm = createVM({
-      sandbox: {
-        __HOOK_WXS_LIST__: [],
-        setTimeout
-      }
-    })
-    code = code
-      .replaceAll(
-        'var e_={}',
-        `var e_ = {}; window.DecompilationModules = global;`
-      )
-      .replaceAll(
-        'var nom={};',
-        `var nom = {}; __HOOK_WXS_LIST__.push(nnm);`
-      )
-      .replaceAll(
-        'function(){if(!nnm[n])',
-        `function(){ return {n, func: nnm[n]};`
-      )
-
-    vm.run(code)
-    this.DecompilationModules = {...vm.sandbox.window['DecompilationModules']} || {entrys: {}, modules: {}, defines: {}}
-
-    for (const name in vm.sandbox) {
-      const func = vm.sandbox[name]
-      if (typeof func !== 'function') continue
-      vm.sandbox.__wxAppCode__ = {}
-      const isPlugin = name.startsWith('$gwx_wx') && this.pluginNames.find(pluginName => name.includes(pluginName))
-      const global: Partial<ModuleDefine> = {}
-      if (isPlugin) { // 插件处理
-        const appId = name.replace('$gwx_', '') // 插件APPID
-        try {
-          // 将所有的 $gwx_  加载到 global 对象中， window.DecompilationModules 是 global 的引用 
-          func(void 0, global)
-          deepmerge(this.DecompilationModules.entrys, global.entrys || {})
-        } catch (e) {
-        }
-        if (!isWxAppid(appId)) {
-          continue
-        }
-        this.WXML_PLUGINS[appId] = global as any
-      } else if (name.startsWith('$gwx')) { // 主环境模块组件处理
-        try {
-          func('', this.DecompilationModules)()
-        } catch (e) {
-        }
-      }
-    }
-
-    for (const wxmlPath in this.DecompilationModules.modules) {
-      if (path.extname(wxmlPath) !== '.wxml') continue
-      const wxmlRefWxsInfo = this.DecompilationModules.modules[wxmlPath]
-      for (const moduleName in wxmlRefWxsInfo) {
-        const {n, func} = wxmlRefWxsInfo[moduleName]()
-        if (n && func) {
-          this.wxsRefInfo.push(<any>{
-            wxmlPath: wxmlPath,
-            wxsPath: resetWxsRequirePath(n).split(':')[0],
-            isInline: n.startsWith('m_'),
-            moduleName,
-            wxsRender: func,
-            templateList: []
-          })
-        }
-      }
-    }
-    if (this.packType === 'main') {
-      const appConfig = this.appConfig
-      const allPageJsonConfig = appConfig.page
-      this.allRefComponentList = arrayDeduplication(Object.keys(allPageJsonConfig || {})
-        .map((pagePath: any) => {
-          const pageInfo = allPageJsonConfig[pagePath]
-          const allRefComponents: string[] = Object.values(pageInfo?.window?.['usingComponents'] || {})
-          return allRefComponents.map(compRelativePath => {
-            return `.${path.resolve(path.relative(this.pathInfo.resolve(pagePath), compRelativePath))}`
-          })
-        })
-        .flat(2))
-
-      this.allSubPackagePages = (appConfig.subPackages || [])
-        .map((subPackage: any) => appConfig.pages.filter((pagePath: string) => pagePath.startsWith(subPackage.root)))
-        .flat(2)
     }
   }
 
@@ -204,12 +101,6 @@ export class AppDecompilation extends BaseDecompilation {
       delete appConfig.window['navigationBarBackgroundColor']
     }
 
-    // const entrys = this.DecompilationModules?.entrys || {}
-    // const entryList = Object.keys(entrys).map(str => replaceExt(str.replace('./', ''), ''))
-    // if (appConfig.pages) {
-    //   appConfig.pages = arrayDeduplication(appConfig.pages.concat(entryList))
-    // }
-    
     this.mainPackEntries = [...appConfig.pages]
     if (appConfig.subPackages) {
       let subPackages = [];
@@ -243,7 +134,6 @@ export class AppDecompilation extends BaseDecompilation {
       appConfig.subPackages = subPackages;
     }
     if (appConfig.pages) {
-      // appConfig.pages = arrayDeduplication<string>(appConfig.pages, (_, cur) => !this.allSubPackagePages.includes(cur))
       appConfig.pages =/*必须在subPackages 之后*/ this.mainPackEntries
 
     }
@@ -306,12 +196,12 @@ export class AppDecompilation extends BaseDecompilation {
     for (const filePath in __wxAppCode__) {
       if (path.extname(filePath) !== '.json') continue
       let tempFilePath = filePath
-      const pageJson = __wxAppCode__[filePath]
+      const pageJson: Record<any, any> = __wxAppCode__[filePath]
       let realJsonConfigString = JSON.stringify(pageJson, null, 2)
       let jsonOutputPath = filePath
       if (isPluginPath(filePath)) {
         tempFilePath = path.join(pluginDirRename[0], filePath.replace('plugin-private://', ''))
-        jsonOutputPath = `${this.pathInfo.packRootPath}/${tempFilePath}`
+        jsonOutputPath = path.join(this.pathInfo.packRootPath, tempFilePath)
       }
       // console.log(jsonOutputPath)
       printLog(" Completed " + ` (${realJsonConfigString.length}) \t` + colors.bold(colors.gray(jsonOutputPath)))
@@ -406,10 +296,7 @@ export class AppDecompilation extends BaseDecompilation {
       const isPlugin = isPluginPath(cssPath)
       if (isPlugin) { // 解析插件，重定向到插件所在路径
         // 将插件路径重定向到主包 或者 分包所在路径
-        cssPath = cssPath.replace(
-          'plugin-private://',
-          `${this.pathInfo.packRootPath}/${pluginDirRename[0]}/`
-        )
+        cssPath = resetPluginPath(cssPath, path.join(this.pathInfo.packRootPath, pluginDirRename[0]))
       }
       arr = arr.map((item) => {
         if (Array.isArray(item)) {
@@ -419,7 +306,7 @@ export class AppDecompilation extends BaseDecompilation {
           } else if (type === 2) {
             if (typeof item[1] === 'string') {
               const relativePath = path.relative(
-                this.pathInfo.resolve(path.dirname(cssPath)),
+                this.pathInfo.outputResolve(path.dirname(cssPath)),
                 this.pathInfo.resolve(item[1]),
               )
               return `@import "${relativePath}";`
@@ -447,6 +334,10 @@ export class AppDecompilation extends BaseDecompilation {
     code = code.replaceAll('__COMMON_STYLESHEETS__[', '__COMMON_STYLESHEETS_HOOK__[')
     // code = code.replaceAll('var setCssToHead', 'var __setCssToHead__')
     code = code.replaceAll(';__wxAppCode__', ';\n__wxAppCode__')
+    // code = code.replaceAll(
+    //   'var setCssToHead=function(file,_xcInvalid,info){', 
+    //   'var setCssToHead=function(file,_xcInvalid,info){ return {file, info} ', 
+    // )
     const vm = createVM({
       sandbox: {__COMMON_STYLESHEETS_HOOK__: {}}
     })
@@ -474,8 +365,9 @@ export class AppDecompilation extends BaseDecompilation {
     }
     /* 拦截 @import 引入的的公共 css */
     const __COMMON_STYLESHEETS_HOOK__ = vm.sandbox.__COMMON_STYLESHEETS_HOOK__ || {}
-    for (const cssPath in __COMMON_STYLESHEETS_HOOK__) {
+    for (let cssPath in __COMMON_STYLESHEETS_HOOK__) {
       const astList = __COMMON_STYLESHEETS_HOOK__[cssPath]
+      cssPath = path.join(this.pathInfo.packRootPath, cssPath)
       this._setCssToHead(astList, null, {path: cssPath})
     }
   }
@@ -501,10 +393,7 @@ export class AppDecompilation extends BaseDecompilation {
       if (!attr_wxss_path) continue
       if (isPluginPath(filepath)) { // 解析插件，重定向到插件所在路径
         // 将插件路径重定向到主包 或者 分包所在路径
-        filepath = filepath.replace(
-          'plugin-private://',
-          `${this.pathInfo.packRootPath}/${pluginDirRename[0]}/`
-        )
+        filepath = resetPluginPath(filepath, path.join(this.pathInfo.packRootPath, pluginDirRename[0]))
         lastStyleEl.setAttribute('wxss:path', filepath)
       }
     }
@@ -562,36 +451,167 @@ export class AppDecompilation extends BaseDecompilation {
     return jsBeautify(code)
   }
 
+  /**
+   * 执行所有的 $gwx_ 函数， 包含 主环境 和 插件函数
+   * */
+  private executeAllGwxFunction(code: string): ExecuteAllGwxFunction {
+    code = code
+      .replaceAll(
+        'var e_={}',
+        `var e_ = {}; window.COMPONENTS = global;`
+      )
+      .replaceAll(
+        'function(){if(!nnm[n])',
+        `function(){ return {n, func: nnm[n]};`
+      )
+    const vm = createVM({
+      sandbox: {
+        setTimeout
+      }
+    })
+    vm.run(code)
+
+    // 主包 或 分包 自身插件的 模块 定义信息
+    const PLUGINS: Record<string, ModuleDefine> = {}
+    // 主环境( 主包， 分包 )的 模块 定义信息
+    const COMPONENTS: ModuleDefine = {
+      entrys: {},
+      modules: {},
+      defines: {}
+    }
+    const ALL_ENTRYS: ModuleDefine["entrys"] = {}
+    const ALL_MODULES: ModuleDefine["modules"] = {}
+    const ALL_DEFINES: ModuleDefine["defines"] = {}
+    const pluginNames = glob.globSync(`${this.pathInfo.resolve(pluginDirRename[1])}/*`)
+      .map(pluginPath => path.basename(pluginPath))
+      .filter(isWxAppid)
+
+    for (const name in vm.sandbox) {
+      const func = vm.sandbox[name]
+      if (typeof func !== 'function') continue
+      vm.sandbox.__wxAppCode__ = {}
+      const isPlugin = name.startsWith('$gwx_wx') && pluginNames.find(pluginName => name.includes(pluginName))
+      const global: Partial<ModuleDefine> = {}
+      if (isPlugin) { // 插件处理
+        const appId = name.replace('$gwx_', '') // 插件APPID
+        try {
+          // 将所有的 $gwx_  加载到 global 对象中， window.COMPONENTS 是 global 的引用 
+          func(void 0, global)
+          PLUGINS[appId] = global as any // 区分每个插件环境
+        } catch (e) {
+        }
+      } else if (name.startsWith('$gwx')) { // 主环境模块组件处理
+        try {
+          func('', COMPONENTS)() // 注入主环境
+        } catch (e) {
+        }
+      }
+    }
+    //--------------------------------------------------------------------------
+    const getWxsInfo = (data: Record<any, any>, appid?: string): Record<any, any> => {
+      if (typeof data !== 'function') return data
+      data = data()
+      data.isInline = data.n.startsWith('m_')
+      const wxsPath = `${resetWxsRequirePath(data.n).split(':')[0]}`
+      if (appid) {
+        data.appid = appid
+        data.n = path.join(this.pathInfo.packRootPath, pluginDirRename[0], appid, wxsPath)
+      } else {
+        data.n = path.join(this.pathInfo.packRootPath, wxsPath)
+      }
+      return data
+    }
+    //--------------------------------------------------------------------------
+    const wxsModuleProcess = (receive: Record<any, any>, _path: string, data: any, appid?: string) => {
+      const ext = path.extname(_path)
+      if (ext === '.wxs' && typeof data === 'function') {
+        data = getWxsInfo(data, appid)
+      }
+      if (ext === '.wxml' && typeof data === 'object') {
+        for (const moduleName in data) {
+          data[moduleName] = getWxsInfo(data[moduleName], appid)
+        }
+      }
+      receive[_path] = data
+    }
+    //--------------------------------------------------------------------------
+    const merge = (receive: Record<any, any>, type: keyof ModuleDefine) => {
+      for (let _path in COMPONENTS[type]) {
+        let data: any = COMPONENTS[type][_path]
+        if (type === 'modules') {
+          wxsModuleProcess(receive, _path, data)
+        } else {
+          receive[path.join(_path)] = COMPONENTS[type][_path]
+        }
+      }
+      for (const appid in PLUGINS) {
+        const plugin = PLUGINS[appid]
+        for (let _path in plugin[type]) {
+          let data: any = plugin[type][_path]
+          _path = path.join(this.pathInfo.packRootPath, pluginDirRename[0], appid, _path)
+          if (type === 'modules') {
+            wxsModuleProcess(receive, _path, data, appid)
+          } else {
+            receive[path.join(_path)] = data
+          }
+        }
+      }
+    }
+    //--------------------------------------------------------------------------
+    // 合并主环境 和 插件环境
+    merge(ALL_ENTRYS, 'entrys')
+    merge(ALL_MODULES, 'modules')
+    merge(ALL_DEFINES, 'defines')
+
+    return {
+      COMPONENTS,
+      PLUGINS,
+      ALL_ENTRYS,
+      ALL_MODULES,
+      ALL_DEFINES
+    }
+  }
+
   private async decompileAppWXS() {
+    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    const {ALL_MODULES, PLUGINS} = this.executeAllGwxFunction(code)
+    const wxsRefInfo = []
+    for (const wxmlPath in ALL_MODULES) {
+      if (path.extname(wxmlPath) !== '.wxml') continue
+      const wxmlRefWxsInfo = ALL_MODULES[wxmlPath]
+      for (const moduleName in wxmlRefWxsInfo) {
+        const {n, func, isInline} = wxmlRefWxsInfo[moduleName]
+        // console.log(n, 1, wxmlPath, func, isInline, moduleName)
+        if (n && func) {
+          wxsRefInfo.push(<any>{
+            wxmlPath: wxmlPath,
+            wxsPath: n,
+            isInline: isInline,
+            moduleName,
+            wxsRender: func,
+            templateList: []
+          })
+        }
+      }
+    }
     // 保存被 wxml 引用的 wxs 文件
-    this.wxsRefInfo.forEach(item => {
+    wxsRefInfo.forEach(item => {
       if (item.isInline) return
       if (!item.wxsPath.endsWith('.wxs')) return
       const wxsString = this.functionToWXS(item.wxsRender, item.wxsPath)
-      saveLocalFile(this.pathInfo.resolve(item.wxsPath), wxsString)
+      saveLocalFile(this.pathInfo.outputResolve(item.wxsPath), wxsString)
       printLog(" Completed " + ` (${wxsString.length}) \t` + colors.bold(colors.gray(item.wxsPath)))
     })
     // 保存游离的被 JS 引用的 wxs 文件
-    for (const wxsPath in this.DecompilationModules.modules) {
+    for (const wxsPath in ALL_MODULES) {
       if (!wxsPath.endsWith('.wxs')) continue
-      const DModule = this.DecompilationModules.modules
-      const func = DModule[wxsPath] as Function
-      if (typeof func !== 'function') {
-        console.log(wxsPath, '[wxs] is not a function')
-        continue
-      }
-      const result = func()
-      if (!result.func) {
-        console.log(wxsPath, '[wxs] is not a function')
-        continue
-      }
+      const result: Record<any, any> = ALL_MODULES[wxsPath]
       const wxsString = this.functionToWXS(result.func, wxsPath)
-      saveLocalFile(this.pathInfo.resolve(wxsPath), wxsString)
+      saveLocalFile(this.pathInfo.outputResolve(wxsPath), wxsString)
       printLog(" Completed " + ` (${wxsString.length}) \t` + colors.bold(colors.gray(wxsPath)))
     }
-    // console.log(this.DecompilationModules.modules)
     // 解析模板归属
-    this.wxsRefInfo.forEach(item => {
+    wxsRefInfo.forEach(item => {
       let relativePath = path.relative(
         this.pathInfo.resolve(path.dirname(item.wxmlPath)),
         this.pathInfo.resolve(item.wxsPath)
@@ -603,25 +623,26 @@ export class AppDecompilation extends BaseDecompilation {
       }
     })
     // 修改 wxml 文件
-    this.wxsRefInfo.forEach(item => {
+    wxsRefInfo.forEach(item => {
       if (item.templateList && !item.templateList.length) return
-      const wxmlAbsolutePath = this.pathInfo.resolve(item.wxmlPath)
+      const wxmlAbsolutePath = this.pathInfo.outputResolve(item.wxmlPath)
       const templateString = item.templateList.join('\n')
       const wxmlCode = readLocalFile(wxmlAbsolutePath)
       saveLocalFile(wxmlAbsolutePath, `${wxmlCode}\n${templateString}`, {force: true})
     })
 
-    if (Object.keys(this.wxsRefInfo).length) {
+    if (Object.keys(wxsRefInfo).length) {
       printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
     }
   }
 
-  private async decompileAppWXML() {
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
-    if (!code) return
+  /**
+   * 获取定义的 X 路径池， 池中的内容顺序不能变
+   * */
+  private _getXPool(code: string) {
     let xPool = []
     const xPoolReg = /var\s+x=\s*\[(.+)];\$?/g
-    const regResList = code.match(xPoolReg)
+    const regResList = (code.match(xPoolReg) || [])
       .sort((a, b) => b.length - a.length) // 排序， 优先匹配内容最多的， 可能会遇到特殊情况，后面再看看
     if (regResList.length && regResList[0].includes('var x=[') && regResList[0].includes('.wxml')) {
       xPool = regResList[0]
@@ -630,28 +651,22 @@ export class AppDecompilation extends BaseDecompilation {
         .split(',')
         .map(str => str.replaceAll("'", ''))
     }
+    return xPool
+  }
+
+  private async decompileAppWXML() {
+    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    if (!code) return
+    const {ALL_DEFINES, ALL_ENTRYS} = this.executeAllGwxFunction(code)
+    let xPool = this._getXPool(code)
     const vm = createVM()
     vm.run(code)
     getZ(code, (z: Record<string, any[]>) => {
-      const {entrys, defines} = this.DecompilationModules
-      const allEntrys = {...entrys}
-      for (const appId in this.WXML_PLUGINS) {
-        const pluginEntrys = this.WXML_PLUGINS[appId].entrys
-        const newPluginEntrys = {}
-        for (const name in pluginEntrys) {
-          const pluginFilePath = path.join(
-            this.packType === 'sub' ? this.pathInfo.packRootPath : './',
-            `${pluginDirRename[0]}/${appId}`, name
-          )
-          // console.log(pluginFilePath)
-          newPluginEntrys[pluginFilePath] = pluginEntrys[name]
-        }
-        Object.assign(allEntrys, newPluginEntrys)
-      }
-
-      for (let wxmlPath in allEntrys) {
-        let result = tryDecompileWxml(allEntrys[wxmlPath].f.toString(), z, defines[wxmlPath], xPool)
+      const entrys = ALL_ENTRYS
+      for (let wxmlPath in entrys) {
+        let result = tryDecompileWxml(entrys[wxmlPath].f.toString(), z, ALL_DEFINES[wxmlPath], xPool)
         if (result) {
+          /* 重定向图片相对链接 */
           const jsdom = new JSDOM(result)
           const document = jsdom.window.document
           const allImageEls = document.querySelectorAll('[src]')
@@ -684,49 +699,6 @@ export class AppDecompilation extends BaseDecompilation {
     printLog(` \u25B6 反编译所有 wxml 文件成功. \n`, {isStart: true})
   }
 
-  /**
-   * 生成组件构成必要素的默认 json wxs, wxml, wxss 文件
-   * */
-  private async generateDefaultAppFiles() {
-    const allPageAbsolutePathList = glob
-      .globSync(
-        `${this.pathInfo.resolve()}/**/*.html`
-      )
-      .filter((str) => {
-        return ![
-          'page-frame.html'
-        ].includes(path.basename(str))
-      })
-      .map(_path => {
-        return path.relative(this.pathInfo.outputPath, _path)
-      })
-    const allPage = allPageAbsolutePathList.map(str => str.replace(this.pathInfo.packRootPath, '.'))
-    const allPageAndComp = allPage
-      .concat(this.allRefComponentList)
-      .concat(this.allSubPackagePages)
-      .concat(this.appConfig.pages || [])
-    
-    for (let pagePath of allPageAndComp) {
-      // /* json */
-      // console.log(replaceExt(pagePath, ".json"), pagePath)
-      let jsonPath = this.pathInfo.resolve(replaceExt(pagePath, ".json"))
-      saveLocalFile(jsonPath, '{\n  "component":true\n}');
-      let jsName = replaceExt(pagePath, ".js")
-      let jsPath = this.pathInfo.resolve(jsName)
-      saveLocalFile(jsPath, "Page({ data: {} })");
-      /* wxml */
-      let wxmlName = replaceExt(pagePath, ".wxml");
-      let wxmlPath = this.pathInfo.resolve(wxmlName)
-      saveLocalFile(wxmlPath, `<text>${wxmlName}</text>`);
-      /* js */
-      /* wxss */
-      // let cssName = replaceExt(pagePath, ".wxss")
-      // let cssPath = this.pathInfo.resolve(cssName)
-      // saveLocalFile(cssPath, "/* " + cssName + " */");
-    }
-    printLog(` \u25B6 生成页面和组件构成必要的默认文件成功. \n`, {isStart: true})
-  }
-
   public async decompileAll(options: { usePx?: boolean } = {}) {
     super.decompileAll()
     /* 开始编译 */
@@ -742,12 +714,6 @@ export class AppDecompilation extends BaseDecompilation {
     await this.decompileAppWXML()
     await this.decompileAppWXS()   // 解析 WXS 应该在解析完所有 WXML 之后运行 
     await this.decompileAppWorkers()
-    /* ----------------------------------- */
-    await this.generateDefaultAppFiles()
-    await this.generaProjectConfigFiles()
-    if (!isDev) {
-      await this.removeCache()
-    }
   }
 }
 

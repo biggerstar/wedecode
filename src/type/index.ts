@@ -1,4 +1,5 @@
 import {getPathResolveInfo} from "@/utils/common";
+import {VM} from "vm2";
 
 export type AppCodeInfo = {
   appConfigJson: string;
@@ -16,14 +17,20 @@ export type GameCodeInfo = {
   appConfigJson: string;
   subContextJs: string;
 }
-
+export type WxmlRenderFunction = {
+  f: Function,
+  j: any[],
+  i: any[],
+  ti: any[],
+  ic: any[]
+}
 export type ModuleDefine = {
   /**
    * 包含所有的 wxml 组件渲染函数
    * */
-  entrys: Record<string, { f: Function, j: any[], i: any[], ti: any[], ic: any[] }>
+  entrys: Record<string, WxmlRenderFunction>
   /**
-   * 包含当前已经载入的模块和 wxs 映射关系
+   * 包含当前已经载入的模块和 wxs 映射关系, 不一定是完整的
    * */
   modules: Record<string, Record<any, any> | Function>
   /**
@@ -60,6 +67,14 @@ export type UnPackInfo = {
    * 输出的文件夹路径
    * */
   outputPath: string;
+}
+
+export type ExecuteAllGwxFunction =   {
+  COMPONENTS: ModuleDefine;
+  PLUGINS: Record<string, ModuleDefine>;
+  ALL_ENTRYS: ModuleDefine["entrys"];
+  ALL_MODULES: ModuleDefine["modules"];
+  ALL_DEFINES: ModuleDefine["defines"];
 }
 
 export type PloyfillItem = {
@@ -133,3 +148,6 @@ export type WxsRefInfo = Array<{
   templateList: string[]
 }>
 
+export type DecompilationControllerState = {
+  usePx: boolean,
+}

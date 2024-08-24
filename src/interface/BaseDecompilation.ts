@@ -39,10 +39,9 @@ export class BaseDecompilation {
     if (!fs.existsSync(this.pathInfo.workersPath)) {
       return
     }
-    if (!fs.existsSync(this.pathInfo.appJsonPath)) {
-      return
-    }
-    const appConfig: Record<any, any> = JSON.parse(readLocalFile(this.pathInfo.appJsonPath))
+    const appConfigString = readLocalFile(this.pathInfo.appJsonPath)
+    if (!appConfigString) return
+    const appConfig: Record<any, any> = JSON.parse(appConfigString)
     let code = readLocalFile(this.pathInfo.workersPath)
     let commPath: string = '';
     let vm = createVM({
@@ -97,61 +96,6 @@ export class BaseDecompilation {
     printLog(` \u25B6 反编译 Worker 文件成功. \n`, {isStart: true})
   }
 
-  /**
-   * 生成小程序的项目配置
-   * */
-  protected async generaProjectConfigFiles() {
-    const defaultConfigData = {
-      "setting": {
-        "es6": false,
-        "urlCheck": false,
-        "ignoreDevUnusedFiles": false,
-        "ignoreUploadUnusedFiles": false,
-      }
-    }
-    let finallyConfig = {}
-    const projectPrivateConfigString = readLocalFile(this.pathInfo.projectPrivateConfigJsonPath)
-    if (projectPrivateConfigString) {
-      const projectPrivateConfigData = JSON.parse(projectPrivateConfigString)
-      deepmerge(projectPrivateConfigData, defaultConfigData)
-      finallyConfig = projectPrivateConfigData
-    } else {
-      finallyConfig = defaultConfigData
-    }
-    saveLocalFile(this.pathInfo.projectPrivateConfigJsonPath, JSON.stringify(finallyConfig, null, 2), {force: true})
-  }
-
-  protected async removeCache() {
-    await sleep(500)
-    let cont = 0
-    const removeFileList = this.appType === 'game' ? removeGameFileList : removeAppFileList
-    const absolutePackRootPath = this.pathInfo.outputResolve(this.pathInfo.packRootPath)
-    const allFile = glob.globSync(`${absolutePackRootPath}/**/**{.js,.html,.json}`)
-    allFile.forEach(filepath => {
-      const fileName = path.basename(filepath).trim()
-      const extname = path.extname(filepath)
-      if (!fs.existsSync(filepath)) return
-      let _deleteLocalFile = () => {
-        cont++
-        deleteLocalFile(filepath, {catch: true, force: true})
-      }
-      if (removeFileList.includes(fileName)) {
-        _deleteLocalFile()
-      } else if (extname === '.html') {
-        const feature = 'var __setCssStartTime__ = Date.now()'
-        const data = readLocalFile(filepath)
-        if (data.includes(feature)) _deleteLocalFile()
-      } else if (filepath.endsWith('.appservice.js')) {
-        _deleteLocalFile()
-      } else if (filepath.endsWith('.webview.js')) {
-        _deleteLocalFile()
-      }
-    })
-
-    if (cont) {
-      printLog(`\n \u25B6 移除中间缓存产物成功, 总计 ${colors.yellow(cont)} 个`, {isStart: true})
-    }
-  }
 
   protected decompileAll() {
     printLog(` \u25B6 当前反编译目标[ ${AppTypeMapping[this.appType]} ] (${colors.yellow(PackTypeMapping[this.packType])}) : ` + colors.blue(this.packPath));

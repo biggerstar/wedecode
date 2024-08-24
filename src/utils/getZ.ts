@@ -1,25 +1,37 @@
 import {createVM} from "./createVM";
-import {data} from "cheerio/lib/api/attributes";
+
+function parseParenthesesTyping(str: string): 'single' | 'double' | 'multiple' {
+  str = str.trim()
+  const sameObject = str.startsWith('{') && str.endsWith('}')
+  const sameArray = str.startsWith('[') && str.endsWith(']')
+  const hasSpreading = (sameArray || sameObject) && str.includes('...')
+  if (sameObject &&
+    !hasSpreading &&
+    str.split(':').length === 2
+  ) {
+    // {uuid:uuid}
+    return 'single'
+  } else if (sameObject || sameArray) {
+    // {uuid:uuid, ...val}
+    return 'multiple'
+  } else {
+    return 'double'
+  }
+}
 
 function restoreSingle(ops: any, withScope = false) {
   if (typeof ops == "undefined") return "";
 
   function scope(value: string) {
-    if (value.startsWith('{') && value.endsWith('}')) return withScope ? value : "{{(" + value + ")}}";
-    return withScope ? value : "{{" + value + "}}";
+    if (withScope) return value;
+    // const typing = parseParenthesesTyping(value);
+    // if (typing === 'single') return "{" + value + "}";
+    // else if (typing === 'multiple') return "{{(" + value + ")}}";
+    // else return "{{" + value + "}}";
+    if (value.startsWith('{') && value.endsWith('}')) return "{{(" + value + ")}}";
+    return "{{" + value + "}}";
   }
 
-  // function scope(value: string) {
-  //   const isObject = value.startsWith('{') && value.endsWith('}')
-  //   const hasPureVariableObj = isObject && !(value.includes('"') || value.includes("'")) && value.includes(':') // 是否是纯变量对象，比如不包含 "" 字符串等对象 
-  //   console.log(hasPureVariableObj, value)
-  //   if (isObject) {
-  //     value = value.replace('"', '"')
-  //     if (!hasPureVariableObj) return withScope ? value : "{{(" + value + ")}}";  // 符合变量对象
-  //     else return withScope ? value : "{" + value + "}";    // 纯变量对象
-  //   }
-  //   return withScope ? value : "{{" + value + "}}";   // 其他表达式
-  // }
   function enBrace(value: string, type = '{') {
     if (value.startsWith('{') ||
       value.startsWith('[') ||
@@ -43,11 +55,11 @@ function restoreSingle(ops: any, withScope = false) {
     }
   }
 
-  function restoreNext(ops, w = withScope) {
+  function restoreNext(ops: any, w = withScope) {
     return restoreSingle(ops, w);
   }
 
-  function jsoToWxOn(obj) {//convert JS Object to WeChat Object Notation(No quotes@key+str)
+  function jsoToWxOn(obj: any) {//convert JS Object to WeChat Object Notation(No quotes@key+str)
     let ans = "";
     if (typeof obj === "undefined") {
       return 'undefined';

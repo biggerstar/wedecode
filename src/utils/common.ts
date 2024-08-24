@@ -2,6 +2,7 @@ import path from "node:path";
 import process from "node:process";
 import {stdout as slog} from 'single-line-log'
 import JS from 'js-beautify'
+import {isDev} from "@/bin/wedecode/enum";
 
 export function getPathResolveInfo(outputDir: string) {
   let _packRootPath = outputDir
@@ -17,11 +18,17 @@ export function getPathResolveInfo(outputDir: string) {
     /** 相对当前主包路径进行解析 */
     outputResolve,
     outputPath: outputDir,
+    join(_path: string) {
+      return path.join(_packRootPath, _path)
+    },
     setPackRootPath(rootPath: string) {
       _packRootPath = rootPath
     },
+    /**
+     * 当前的包根路径， 主包为 ./ , 分包为相对主包根的相对路径
+     * */
     get packRootPath() {
-      return _packRootPath
+      return _packRootPath === outputDir ? './' : _packRootPath
     },
     get appJsonPath() {
       return resolve('app.json')
@@ -95,9 +102,11 @@ export function limitPush(arr: any[], data: any, limit = 10) {
 }
 
 const openStreamLog = false
-const excludesLogMatch = [
-  // 'Completed'
-]
+const excludesLogMatch = isDev
+  ? [
+    'Completed'
+  ]
+  : []
 
 export function printLog(log: string, opt: {
   isStart?: boolean,
@@ -145,10 +154,11 @@ export function printLog(log: string, opt: {
   clearScreen()
   slog(log)
 }
+
 /**
  * 从数组中移除某个值
  * */
-export function removeElement<T extends any>(arr: T[], elementToRemove: T): void{
+export function removeElement<T extends any>(arr: T[], elementToRemove: T): void {
   const index = arr.indexOf(elementToRemove);
   if (index > -1) {
     arr.splice(index, 1);
@@ -220,7 +230,14 @@ export function findCommonRoot(paths: string[]) {
 }
 
 export function isPluginPath(path: string) {
-  return path.startsWith('plugin-private://')
+  return path.startsWith('plugin-private://') || path.startsWith('plugin://')
+}
+
+export function resetPluginPath(_path: string, prefixDir: string | null | void) {
+  return path.join(
+    prefixDir || './',
+    _path.replaceAll('plugin-private://', '').replaceAll('plugin://', ''),
+  )
 }
 
 /**
@@ -241,7 +258,7 @@ export function getParameterNames(fn: Function) {
  * 判断是否是wx 的 appid
  * */
 export function isWxAppid(str: string) {
-  const reg = /^wx[0-9a-f]{18}$/i
+  const reg = /^wx[0-9a-f]{16}$/i
   str = str.trim()
   return str.length === 18 && reg.test(str)
 }

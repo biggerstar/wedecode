@@ -11,6 +11,17 @@ export function readLocalFile(path: string, encoding: BufferEncoding = 'utf-8'):
 }
 
 /**
+ * 读取文件，没有文件或者文件为空返回 null
+ * */
+export function readLocalJsonFile<T extends Record<any, any>>(path: string, encoding: BufferEncoding = 'utf-8'): T | null {
+  try {
+    return JSON.parse(readLocalFile(path, encoding))
+  } catch (e) {
+    return null
+  }
+}
+
+/**
  * 顺序读取列表中的文件， 直到读取的文件包含内容
  * */
 export function readFileUntilContainContent(pathList: string[], encoding: BufferEncoding = 'utf-8'): {
