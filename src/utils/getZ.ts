@@ -160,10 +160,10 @@ function restoreSingle(ops: any, withScope = false) {
         }
         break;
       }
-      case 4://unkown-arrayStart?
+      case 4: // unkown-arrayStart? 将操作符下 数组 拼接数组成字符串形式
         ans = restoreNext(ops[1], true);
         break;
-      case 5://merge-array
+      case 5: // merge-array
       {
         switch (ops.length) {
           case 2:
@@ -192,9 +192,9 @@ function restoreSingle(ops: any, withScope = false) {
       case 6://get value of an object
       {
         let sonName = restoreNext(ops[2], true);
-        if (sonName._type === "var")
+        if (sonName._type === "var") {
           ans = restoreNext(ops[1], true) + enBrace(sonName, '[');
-        else {
+        } else {
           let attach = "";
           if (/^[A-Za-z\_][A-Za-z\d\_]*$/.test(sonName)/*is a qualified id*/)
             attach = '.' + sonName;
@@ -263,31 +263,29 @@ function restoreSingle(ops: any, withScope = false) {
 function catchZ(code: string, cb: Function) {
   const reg = /function\s+gz\$gwx(\w+)\(\)\{(?:.|\n)*?;return\s+__WXML_GLOBAL__\.ops_cached\.\$gwx[\w\n]+}/g
   const allGwxFunctionMatch = code.match(reg)
-  // console.log(allGwxFunctionMatch)
+  if (!allGwxFunctionMatch) return
   const allFunctionMap = {}
-  const z = {}
+  const zObject = {}
   const vm = createVM({
     sandbox: {__WXML_GLOBAL__: {ops_cached: {}}}
   })
-  if (allGwxFunctionMatch) {
-    allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
-      const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
-      const funcName = funcReg.exec(funcString)?.[1]
-      if (!funcName) return
-      vm.run(funcString)
-      const hookZFunc = vm.sandbox[`gz$gwx${funcName}`]
-      if (hookZFunc) {
-        allFunctionMap[funcName] = hookZFunc
-        z[funcName] = hookZFunc()
-        z[funcName] = z[funcName]
-          .map((data: any) => {
-            if (Array.isArray(data) && data[0] === '11182016' && Array.isArray(data[1])) return data[1]
-            return data;
-          })
-      }
-    })
-  }
-  cb(z);
+  allGwxFunctionMatch.forEach(funcString => {  // 提取出所有的Z生成函数及其对应gwx函数名称
+    const funcReg = /function\s+gz\$gwx(\w*)\(\)/g
+    const funcName = funcReg.exec(funcString)?.[1]
+    if (!funcName) return
+    vm.run(funcString)
+    const hookZFunc = vm.sandbox[`gz$gwx${funcName}`]
+    if (hookZFunc) {
+      allFunctionMap[funcName] = hookZFunc
+      zObject[funcName] = hookZFunc()
+      zObject[funcName] = zObject[funcName]
+        .map((data: any) => {
+          if (Array.isArray(data) && data[0] === '11182016' && Array.isArray(data[1])) return data[1]
+          return data;
+        })
+    }
+  })
+  cb(zObject);
 }
 
 export function getZ(code: string, cb: Function) {

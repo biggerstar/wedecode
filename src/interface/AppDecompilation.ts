@@ -21,7 +21,6 @@ import {
 } from "@/utils/common";
 import {getAppPackCodeInfo} from "@/utils/getPackCodeInfo";
 import {JSDOM} from "jsdom";
-import {data} from "cheerio/lib/api/attributes";
 
 /**
  * 反编译小程序
@@ -105,7 +104,7 @@ export class AppDecompilation extends BaseDecompilation {
     this.mainPackEntries = arrayDeduplication([...appConfig.pages])
     if (appConfig.subPackages) {
       let subPackages = [];
-      appConfig.subPackages.forEach((subPackage: Record<any, any>) => {
+      appConfig.subPackages.forEach((subPackage: Record<string, any>) => {
         let root = subPackage.root;
         let newPages = [];
         root = !String(root).endsWith('/') ? root + '/' : root

@@ -30,7 +30,7 @@ export type ModuleDefine = {
    * */
   entrys: Record<string, WxmlRenderFunction>
   /**
-   * 包含当前已经载入的模块和 wxs 映射关系, 不一定是完整的
+   * 包含当前已经载入的模块和 wxs 映射关系, 不一定是完整的, 跟随页面加载会变化
    * */
   modules: Record<string, Record<any, any> | Function>
   /**
@@ -149,6 +149,9 @@ export type WxsRefInfo = Array<{
 }>
 
 export type DecompilationControllerState = {
+  /** 使用 px 单位解析 wxss */
   usePx: boolean,
+  /** 仅解包 */
+  unpackOnly: boolean,
 }
 export type ScanTableOptions =  { columns: any[]; rows: any[] }

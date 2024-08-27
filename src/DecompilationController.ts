@@ -29,6 +29,7 @@ export class DecompilationController {
     this.outputPath = path.resolve(outputPath)
     this.config = {
       usePx: false,
+      unpackOnly: false
     }
   }
 
@@ -41,6 +42,7 @@ export class DecompilationController {
    * */
   private async singlePackMode(wxapkgPath: string, outputPath: string): Promise<void> {
     const packInfo = await UnpackWxapkg.unpackWxapkg(wxapkgPath, outputPath)
+    if (this.config.unpackOnly) return 
     if (packInfo.appType === 'game') {
       // 小游戏
       const decompilationGame = new GameDecompilation(packInfo)
@@ -78,7 +80,6 @@ export class DecompilationController {
       await this.singlePackMode(this.inputPath, this.outputPath)
     }
     await this.endingAllJob()
-    printLog(` ✅  ${colors.bold(colors.green('编译流程结束!'))}`, {isEnd: true})
   }
 
   /**
@@ -187,10 +188,12 @@ export class DecompilationController {
    * 收尾工作
    * */
   private async endingAllJob(): Promise<void> {
+    if (this.config.unpackOnly) return
     await this.generateDefaultAppFiles()
     await this.generaProjectConfigFiles()
     if (!isDev) {
       await this.removeCache()
     }
+    printLog(` ✅  ${colors.bold(colors.green('编译流程结束!'))}`, {isEnd: true})
   }
 }

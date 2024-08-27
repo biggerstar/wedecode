@@ -69,14 +69,12 @@ export class BaseDecompilation {
     if (!fs.existsSync(this.pathInfo.workersPath)) {
       return
     }
-    let allWorkerList = []
     const _this = this
     let commPath: string = '';
     let code = readLocalFile(this.pathInfo.workersPath)
     let vm = createVM({
       sandbox: {
         define(name: string, func: Function) {
-          allWorkerList.push(name)
           _this._parseJsDefine(name, func)
           const workerPath = path.dirname(name) + '/';
           if (!commPath) commPath = workerPath;

@@ -13,12 +13,16 @@ export class UnpackWxapkg {
    * 获取包中的文件列表, 包含开始和结束的字节信息
    * */
   private static genFileList(__APP_BUF__: Buffer) {
-    const headerBuffer = __APP_BUF__.subarray(0, 14)
-    /* 获取头字节数据 */
+    /* 将 header 的 buffer 数据单拎出来 */
+    const headerBuffer = __APP_BUF__.subarray(0, 18)
+    /* 获取头字节块起始标志, 固定值为 190 */
     let firstMark = headerBuffer.readUInt8(0);
-    let infoListLength = headerBuffer.readUInt32BE(5);
-    // let dataLength = headerBuffer.readUInt32BE(9);
+    /* 获取文件开始的索引数据块位置，后面可通过该长度把源文件切出来   */
+    let indexInfoLength = headerBuffer.readUInt32BE(5) + 18;
+    /* 获取头字节块结束标志, 固定值为 237 */
     let lastMark = headerBuffer.readUInt8(13);
+    /* 从 header 中读出当前包的文件数量 */
+    let fileCount = headerBuffer.readUInt32BE(14);
     if (firstMark !== 0xbe || lastMark !== 0xed) {
       console.log(` \n\u274C ${colors.red(
         '这不是一个正确的小程序包,在微信3.8版本以下的 PC, MAC 包需要解密\n' +
@@ -26,19 +30,20 @@ export class UnpackWxapkg {
       )
       process.exit(0)
     }
-    const buf = __APP_BUF__.subarray(14, infoListLength + 14)
-    let fileCount = buf.readUInt32BE(0);
-    let fileList = [], off = 4;
+    /* 将保存文件索引位置的数据 buffer 切出来 */
+    const indexBuf = __APP_BUF__.subarray(14, indexInfoLength)
+    let fileList = [], offset = 4;
+    /* 遍历文件列表, 取出每个文件的路径和占用大小，并写入到文件系统中，  header 中每 12 个字节保存一个文件信息 */
     for (let i = 0; i < fileCount; i++) {
-      let info: Record<any, any> = {};
-      let nameLen = buf.readUInt32BE(off);
-      off += 4;
-      info.name = buf.toString('utf8', off, off + nameLen);
-      off += nameLen;
-      info.off = buf.readUInt32BE(off);
-      off += 4;
-      info.size = buf.readUInt32BE(off);
-      off += 4;
+      const info: Record<any, any> = {};
+      const nameLen = indexBuf.readUInt32BE(offset);
+      offset += 4;
+      info.path = indexBuf.toString('utf8', offset, offset + nameLen);
+      offset += nameLen;
+      info.off = indexBuf.readUInt32BE(offset);
+      offset += 4;
+      info.size = indexBuf.readUInt32BE(offset);
+      offset += 4;
       fileList.push(info);
     }
     if (!fileList.length) {
@@ -48,8 +53,8 @@ export class UnpackWxapkg {
     return fileList
   }
 
-  /** 
-   * 解析并保存该包中的所有文件 
+  /**
+   * 解析并保存该包中的所有文件
    * 返回获取该包各种信息 和 路径的操作对象
    * */
   public static async unpackWxapkg(inputPath: string, outputPath: string): Promise<UnPackInfo> {
@@ -60,12 +65,12 @@ export class UnpackWxapkg {
     const outputPathInfo = getPathResolveInfo(outputPath) // 这个永远指向主包
     let packType: MiniPackType = 'sub'
     let appType: MiniAppType = 'app'
-    let subPackRootPath = findCommonRoot(fileList.map(item => item.name))
+    let subPackRootPath = findCommonRoot(fileList.map(item => item.path))
     if (subPackRootPath) { // 重定向到子包目录
       pathInfo.setPackRootPath(subPackRootPath)
     }
     for (let info of fileList) {
-      const fileName = info.name.startsWith("/") ? info.name.slice(1) : info.name
+      const fileName = info.path.startsWith("/") ? info.path.slice(1) : info.path
       const data = __APP_BUF__.subarray(info.off, info.off + info.size)
       /*------------------------------------------------*/
       const subRootPath = pathInfo.outputResolve(fileName)

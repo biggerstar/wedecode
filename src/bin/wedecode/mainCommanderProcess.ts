@@ -61,13 +61,14 @@ export async function startMainCommanderProcess(args: string[], argMap: Record<s
   const decompilationController = new DecompilationController(config.inputPath, config.outputPath)
   decompilationController.setState({
     usePx: argMap.px || false,
+    unpackOnly: argMap.unpackOnly || false,
   })
   await decompilationController.startDecompilerProcess()
   if (argMap.openDir) {
-    console.log('\n \u25B6  打开文件管理器: ', path.resolve(config.outputPath))
+    console.log('\n \u25B6 打开文件管理器: ', colors.yellow(path.resolve(config.outputPath)))
     openFileExplorer(config.outputPath, () => void 0)
   }else {
-    console.log('\n \u25B6  输出路径: ', colors.yellow(path.resolve(config.outputPath)))
+    console.log('\n \u25B6 输出路径: ', colors.yellow(path.resolve(config.outputPath)))
   }
   await sleep(500)
   return true
