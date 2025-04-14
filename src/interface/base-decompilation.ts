@@ -1,11 +1,9 @@
 import colors from "picocolors";
 import path from "node:path";
-import {glob} from "glob";
 import fs from "node:fs";
-import {PloyFill} from "./PloyFill";
-import {removeAppFileList, removeGameFileList} from "@/constant";
-import {createVM} from "@/utils/createVM";
-import {deleteLocalFile, readLocalFile, saveLocalFile} from "@/utils/fs-process";
+import {PloyFillCover} from "./ployfill-cover";
+import {createVM} from "@/utils/create-vm";
+import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {
   AppTypeMapping,
   MiniAppType,
@@ -15,7 +13,6 @@ import {
   UnPackInfo
 } from "@/type";
 import {commonDir, jsBeautify, printLog, removeVM2ExceptionLine, sleep} from "@/utils/common";
-import {deepmerge} from "@biggerstar/deepmerge";
 
 export class BaseDecompilation {
   public readonly pathInfo: PathResolveInfo
@@ -23,7 +20,7 @@ export class BaseDecompilation {
   public readonly packPath: string
   public readonly packType: MiniPackType
   public readonly appType: MiniAppType
-  public readonly ployFill: PloyFill
+  public readonly ployFill: PloyFillCover
 
   constructor(packInfo: UnPackInfo) {
     this.pathInfo = packInfo.pathInfo
@@ -31,7 +28,7 @@ export class BaseDecompilation {
     this.packPath = packInfo.inputPath
     this.packType = packInfo.packType
     this.appType = packInfo.appType
-    this.ployFill = new PloyFill(this.packPath)
+    this.ployFill = new PloyFillCover(this.packPath)
   }
 
   protected async decompileAppWorker(): Promise<any> {

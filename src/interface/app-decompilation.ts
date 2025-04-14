@@ -5,12 +5,12 @@ import path from "node:path";
 import {glob} from "glob";
 import process from "node:process";
 import cssbeautify from "cssbeautify";
-import {BaseDecompilation} from "./BaseDecompilation";
-import {createVM} from "@/utils/createVM";
+import {BaseDecompilation} from "./base-decompilation";
+import {createVM} from "@/utils/create-vm";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {appJsonExcludeKeys, cssBodyToPageReg, pluginDirRename} from "@/constant";
-import {getZ} from "@/utils/getZ";
-import {tryDecompileWxml} from "@/utils/decompileWxml";
+import {getZ} from "@/utils/get-z";
+import {tryDecompileWxml} from "@/utils/decompile-wxml";
 import {AppCodeInfo, ExecuteAllGwxFunction, ModuleDefine, UnPackInfo, WxmlRenderFunction, WxsRefInfo} from "@/type";
 import {
   arrayDeduplication,
@@ -19,7 +19,7 @@ import {
   printLog, removeElement, resetPluginPath, resetWxsRequirePath,
   sleep
 } from "@/utils/common";
-import {getAppPackCodeInfo} from "@/utils/getPackCodeInfo";
+import {getAppPackCodeInfo} from "@/utils/get-pack-codeInfo";
 import {JSDOM} from "jsdom";
 
 /**

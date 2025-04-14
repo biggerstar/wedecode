@@ -1,4 +1,4 @@
-import {createVM} from "./createVM";
+import {createVM} from "./create-vm";
 
 function parseParenthesesTyping(str: string): 'single' | 'double' | 'multiple' {
   str = str.trim()

@@ -1,5 +1,4 @@
 import {getPathResolveInfo} from "@/utils/common";
-import {VM} from "vm2";
 
 export type AppCodeInfo = {
   appConfigJson: string;

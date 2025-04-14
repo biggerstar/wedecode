@@ -36,6 +36,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
                 namePool[f.arguments[1].name].v[f.arguments[2].value] = z[zMulName][f.arguments[3].value];
                 break;
               case "_":   // 标签属性
+                // 放入子层级
                 pushSon(f.arguments[0].name, namePool[f.arguments[1].name]);
                 break;
               case "_2": {
@@ -231,7 +232,7 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
         }
         break;
       case "IfStatement":
-        if (e.test.callee.name.startsWith("_o")) {
+        if (e.test.callee.name.startsWith("_o")) { 
           function parse_OFun(e) {
             if (e.test.callee.name == "_o") return z[e.test.arguments[0].value];
             else if (e.test.callee.name == "_oz") return z[zMulName][e.test.arguments[1].value];
@@ -258,7 +259,9 @@ function analyze(core: any, z: any, namePool: Record<any, any>, xPool: Record<an
               pushSon(vname, nif);
             }
           }
-        } else throw Error("Unknown if statement.");
+        } else {
+          throw Error("Unknown if statement.");
+        }
         break;
       default:
         throw Error("Unknown type " + e.type);
@@ -351,18 +354,14 @@ function elemToString(elem: Record<any, any>, dep: any) {
   return trimMerge(rets);
 }
 
-function getDecompiledWxml(state: any, code: string, z: {}, rDs: any, xPool: string[]) {
-  let rName = code.slice(code.lastIndexOf("return") + 6).replace(/[\;\}]/g, "").trim();
-  code = code.slice(code.indexOf("\n"), code.lastIndexOf("return")).trim();
-  let r = {son: []};
-  analyze(esprima.parseScript(code).body, z, {[rName]: r}, xPool, {[rName]: r});
-  let ans = [];
-  for (let elem of r.son) ans.push(elemToString(elem, 0));
-  let result = [ans.join("")];
-  for (let v in rDs) {
+function genReferenceTemplate(z: Record<any, any>, defineRef: Record<string, string>) {
+  const state = []
+  const result = [];
+  for (let v in defineRef) {
+    // template 引用定义
     state[0] = v;
-    let oriCode = rDs[v].toString();
-    let rName = oriCode.slice(oriCode.lastIndexOf("return") + 6).replace(/[\;\}]/g, "").trim();
+    let oriCode = defineRef[v].toString();
+    let rName = oriCode.slice(oriCode.lastIndexOf("return") + 6).replace(/[;}]/g, "").trim();
     let tryPtr = oriCode.indexOf("\ntry{");
     let zPtr = oriCode.indexOf("var z=gz$gwx");
     let code = oriCode.slice(tryPtr + 5, oriCode.lastIndexOf("\n}catch(")).trim();
@@ -373,14 +372,26 @@ function getDecompiledWxml(state: any, code: string, z: {}, rDs: any, xPool: str
     }
     let r = {tag: "template", v: {name: v}, son: []};
     analyze(esprima.parseScript(code).body, z, {[rName]: r}, {[rName]: r});
-    result.unshift(elemToString(r, 0));
+    result.push(elemToString(r, 0));
   }
-  return result.join("")
+  return result.join("");
 }
 
-export function tryDecompileWxml(fCode: string, z: Record<string, any[]>, define: any, xPool: string[]): string {
+function getDecompiledWxml(code: string, z: Record<any, any>, xPool: string[]) {
+  let rName = code.slice(code.lastIndexOf("return") + 6).replace(/[;}]/g, "").trim();
+  code = code.slice(code.indexOf("\n"), code.lastIndexOf("return")).trim();
+  let r = {son: []};
+  const namePool = {[rName]: r}
+  const fakePool = {[rName]: r}
+  analyze(esprima.parseScript(code).body, z, namePool, xPool, fakePool);
+  let ans = [];
+  for (let elem of r.son) ans.push(elemToString(elem, 0));
+  return ans.join("")
+}
+
+export function tryDecompileWxml(f_func_code: string, z: Record<string, any[]>, define: any, xPool: string[]): string {
   try {
-    return getDecompiledWxml([null], fCode, z, define, xPool)
+    return getDecompiledWxml(f_func_code, z, xPool) + genReferenceTemplate(z, define)
   } catch (e) {
     console.log('[tryDecompileWxml]', e.message)
     return ''

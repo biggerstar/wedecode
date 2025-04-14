@@ -7,10 +7,10 @@ import {deepmerge} from "@biggerstar/deepmerge";
 import {deleteLocalFile, readLocalFile, readLocalJsonFile, saveLocalFile} from "@/utils/fs-process";
 import {removeAppFileList, removeGameFileList} from "@/constant";
 import path from "node:path";
-import {GameDecompilation} from "@/interface/GameDecompilation";
-import {AppDecompilation} from "@/interface/AppDecompilation";
+import {GameDecompilation} from "@/interface/game-decompilation";
+import {AppDecompilation} from "@/interface/app-decompilation";
 import {DecompilationControllerState, PackTypeMapping} from "@/type";
-import {UnpackWxapkg} from "@/interface/UnpackWxapkg";
+import {UnpackWxapkg} from "@/interface/unpack-wxapkg";
 
 
 export class DecompilationController {

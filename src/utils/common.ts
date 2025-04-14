@@ -183,6 +183,21 @@ export function commonDir(pathA: string, pathB: string) {
   return pathA.slice(0, len);
 }
 
+/** 获取共同的最短根路径 */
+export function findCommonRoot(paths: string[]) {
+  const splitPaths = paths.map(path => path.split('/').filter(Boolean));
+  const commonRoot = [];
+  for (let i = 0; i < splitPaths[0].length; i++) {
+    const partsMatch = splitPaths.every(path => path[i] === splitPaths[0][i]);
+    if (partsMatch) {
+      commonRoot.push(splitPaths[0][i]);
+    } else {
+      break;
+    }
+  }
+  return commonRoot.join('/')
+}
+
 export function replaceExt(name: string, ext = "") {
   const hasSuffix = name.lastIndexOf(".") > 2   // x.x
   return hasSuffix ? name.slice(0, name.lastIndexOf(".")) + ext : `${name}${ext}`
@@ -212,21 +227,6 @@ export function removeVM2ExceptionLine(code: string) {
 
 export function resetWxsRequirePath(p: string, resetString: string = '') {
   return p.replaceAll('p_./', resetString).replaceAll('m_./', resetString)
-}
-
-/** 获取共同的最短根路径 */
-export function findCommonRoot(paths: string[]) {
-  const splitPaths = paths.map(path => path.split('/').filter(Boolean));
-  const commonRoot = [];
-  for (let i = 0; i < splitPaths[0].length; i++) {
-    const partsMatch = splitPaths.every(path => path[i] === splitPaths[0][i]);
-    if (partsMatch) {
-      commonRoot.push(splitPaths[0][i]);
-    } else {
-      break;
-    }
-  }
-  return commonRoot.join('/')
 }
 
 export function isPluginPath(path: string) {

@@ -6,7 +6,7 @@ import path from "node:path";
 import openFileExplorer from "open-file-explorer";
 import {sleep} from "@/utils/common";
 import prompts from "@/bin/wedecode/inquirer";
-import {DecompilationController} from "@/DecompilationController";
+import {DecompilationController} from "@/decompilation-controller";
 import colors from "picocolors";
 
 /**

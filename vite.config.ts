@@ -2,39 +2,14 @@ import {resolve} from 'node:path';
 import {cwd} from 'node:process'
 import copy from "rollup-plugin-copy";
 import {defineConfig} from "vite";
+import { builtinModules } from 'node:module'
+import pkg from './package.json'
 
 const external = [
-  'commander',
-  'css-tree',
-  'cheerio',
-  'cssbeautify',
-  'escodegen',
-  'esprima',
-  'handlebars',
-  'js-beautify',
-  'uglify-js',
-  'vite',
-  'fs-extra',
-  'vm2',
-  'node:path',
-  'node:process',
-  'node:child_process',
-  'node:module',
-  'node:fs',
-  'node:crypto',
-  'picocolors',
-  'jsdom',
-  'glob',
-  'inquirer',
-  'inquirer/*',
-  'figlet',
-  'figlet',
-  'figures',
-  'update-check',
-  'open-file-explorer',
-  '@biggerstar/inquirer-selectable-table',
+  ...builtinModules,
+  ...builtinModules.map(name=> `node:${name}`),
+  ...Object.keys(pkg.dependencies),
 ]
-
 
 export default defineConfig(  {
   resolve: {

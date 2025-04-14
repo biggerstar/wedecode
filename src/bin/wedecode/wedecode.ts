@@ -7,7 +7,7 @@ import {
   createNewVersionUpdateNotice,
   createSlogan,
 } from "@/bin/wedecode/common";
-import {startMainCommanderProcess} from "@/bin/wedecode/mainCommanderProcess";
+import {startMainCommanderProcess} from "@/bin/wedecode/main-commander-process";
 
 const notice = createNewVersionUpdateNotice()
 notice.query()

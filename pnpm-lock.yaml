@@ -47,9 +47,6 @@ importers:
       jsdom:
         specifier: ^24.1.0
         version: 24.1.0
-      nodejs-tcp-ping:
-        specifier: ^1.0.3
-        version: 1.0.3
       open-file-explorer:
         specifier: ^1.0.2
         version: 1.0.2
@@ -2021,9 +2018,6 @@ packages:
 
   node-machine-id@1.1.12:
     resolution: {integrity: sha512-QNABxbrPa3qEIfrE6GOJ7BYIuignnJw7iQ2YPbc3Nla1HzRJjXzZOiikfF8m7eAMfichLt3M4VgLOetqgDmgGQ==}
-
-  nodejs-tcp-ping@1.0.3:
-    resolution: {integrity: sha512-pimp+np2V2tjzjuKgIvtQJi6IjoamwGQ9FImtL1BVLvuhqGGUaCB06MuFC7rynFmG/uKFuuzg+FYqbfmcA9D8A==}
 
   nopt@7.2.1:
     resolution: {integrity: sha512-taM24ViiimT/XntxbPyJQzCG+p4EKOpgD3mxFwW38mGjVUrfERQOeY4EDHjdnptttfHuHQXFx+lTP08Q+mLa/w==}
@@ -5092,8 +5086,6 @@ snapshots:
       - supports-color
 
   node-machine-id@1.1.12: {}
-
-  nodejs-tcp-ping@1.0.3: {}
 
   nopt@7.2.1:
     dependencies:

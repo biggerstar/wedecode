@@ -1,10 +1,10 @@
 import colors from "picocolors";
 import {saveLocalFile} from "@/utils/fs-process";
-import {createVM} from "@/utils/createVM";
+import {createVM} from "@/utils/create-vm";
 import {printLog, sleep} from "@/utils/common";
 import {GameCodeInfo, UnPackInfo} from "@/type";
-import {BaseDecompilation} from "@/interface/BaseDecompilation";
-import {getGamePackCodeInfo} from "@/utils/getPackCodeInfo";
+import {BaseDecompilation} from "@/interface/base-decompilation";
+import {getGamePackCodeInfo} from "@/utils/get-pack-codeInfo";
 import {GameJsonExcludeKeys} from "@/constant";
 
 /**

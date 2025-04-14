@@ -2,7 +2,7 @@ import path from "node:path";
 import {glob} from "glob";
 import {PloyfillItem} from "@/type";
 
-export class PloyFill {
+export class PloyFillCover {
   public readonly allPloyFills: PloyfillItem[] = []
 
   constructor(packPath: string) {

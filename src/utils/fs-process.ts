@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import type {RmOptions} from "fs";
-import {pluginDirRename} from "@/constant";
+import type { RmOptions } from "fs";
+import { pluginDirRename } from "@/constant";
 
 /**
  * 读取文件，没有文件或者文件为空返回空字符串
@@ -57,20 +57,20 @@ export function readFileUntilContainContent(pathList: string[], encoding: Buffer
  * */
 export function saveLocalFile(
   filepath: string,
-  data: string | Buffer,
+  data: string | NodeJS.ArrayBufferView | Buffer,
   opt: { force?: boolean, emptyInstead?: boolean } = {}
 ): boolean {
   filepath = filepath.replace(pluginDirRename[0], pluginDirRename[1]) // 重定向插件路径
-  const targetData = fs.existsSync(filepath) ? fs.readFileSync(filepath, {encoding: 'utf-8'}).trim() : ''
+  const targetData = fs.existsSync(filepath) ? fs.readFileSync(filepath, { encoding: 'utf-8' }).trim() : ''
   let force = typeof opt.force === 'boolean' ? opt.force : opt.emptyInstead || !targetData.length
   const outputDirPath = path.dirname(filepath)
   const isExistsFile = fs.existsSync(filepath)
   const isExistsPath = fs.existsSync(outputDirPath)
   if (isExistsFile && !force) return false
   if (!isExistsPath) {
-    fs.mkdirSync(outputDirPath, {recursive: true})
+    fs.mkdirSync(outputDirPath, { recursive: true })
   }
-  fs.writeFileSync(filepath, data)
+  fs.writeFileSync(filepath, data as any)
   return true
 }
 

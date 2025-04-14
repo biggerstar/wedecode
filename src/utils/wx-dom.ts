@@ -64,7 +64,10 @@ export function createWxFakeDom() {
           width: 0,
           height: 0
         }
-      }
-    }
+      },
+      request(){},
+      getExtConfig(){},
+      getExtConfigSync(){},
+    },
   }
 }
