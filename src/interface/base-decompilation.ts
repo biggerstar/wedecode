@@ -2,7 +2,7 @@ import colors from "picocolors";
 import path from "node:path";
 import fs from "node:fs";
 import {PloyFillCover} from "./ployfill-cover";
-import {createVM} from "@/utils/create-vm";
+import {createVM, runVmCode} from "@/utils/create-vm";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {
   AppTypeMapping,
@@ -50,7 +50,7 @@ export class BaseDecompilation {
         }
       }
     })
-    vm.run(code.slice(code.indexOf("define(")));
+    runVmCode(vm, code.slice(code.indexOf("define(")))
     if (commPath.length > 0) commPath = commPath.slice(0, -1);
     printLog(`Worker path:  ${commPath}`);
     appConfig.workers = commPath
@@ -79,7 +79,7 @@ export class BaseDecompilation {
         }
       }
     })
-    vm.run(code);
+    runVmCode(vm, code)
     printLog(`Worker path:  ${commPath}`);
 
     if (commPath) {

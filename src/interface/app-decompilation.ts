@@ -1,17 +1,17 @@
-import {VM} from 'vm2'
+import { VM } from 'vm2'
 import fs from "node:fs";
 import colors from "picocolors";
 import path from "node:path";
-import {glob} from "glob";
+import { glob } from "glob";
 import process from "node:process";
 import cssbeautify from "cssbeautify";
-import {BaseDecompilation} from "./base-decompilation";
-import {createVM} from "@/utils/create-vm";
-import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
-import {appJsonExcludeKeys, cssBodyToPageReg, pluginDirRename} from "@/constant";
-import {getZ} from "@/utils/get-z";
-import {tryDecompileWxml} from "@/utils/decompile-wxml";
-import {AppCodeInfo, ExecuteAllGwxFunction, ModuleDefine, UnPackInfo, WxmlRenderFunction, WxsRefInfo} from "@/type";
+import { BaseDecompilation } from "./base-decompilation";
+import { createVM, runVmCode } from "@/utils/create-vm";
+import { readLocalFile, saveLocalFile } from "@/utils/fs-process";
+import { appJsonExcludeKeys, cssBodyToPageReg, pluginDirRename } from "@/constant";
+import { getZ } from "@/utils/get-z";
+import { tryDecompileWxml } from "@/utils/decompile-wxml";
+import { AppCodeInfo, ExecuteAllGwxFunction, ModuleDefine, UnPackInfo, WxmlRenderFunction, WxsRefInfo } from "@/type";
 import {
   arrayDeduplication,
   getParameterNames,
@@ -19,8 +19,8 @@ import {
   printLog, removeElement, resetPluginPath, resetWxsRequirePath,
   sleep
 } from "@/utils/common";
-import {getAppPackCodeInfo} from "@/utils/get-pack-codeInfo";
-import {JSDOM} from "jsdom";
+import { getAppPackCodeInfo } from "@/utils/get-pack-codeInfo";
+import { JSDOM } from "jsdom";
 
 /**
  * 反编译小程序
@@ -149,7 +149,7 @@ export class AppDecompilation extends BaseDecompilation {
           }
         })
       appConfig.tabBar.list = appConfig.tabBar.list.map((info: Record<any, any>) => {
-        const result: Record<any, any> = {text: info.text}
+        const result: Record<any, any> = { text: info.text }
         result.pagePath = info.pagePath.replace('.html', '')
         if (info.iconData) {
           const found = allFileBufferInfo.find(item => item.data === info.iconData)
@@ -171,9 +171,9 @@ export class AppDecompilation extends BaseDecompilation {
     const appConfigSaveString = JSON
       .stringify(appConfig, null, 2)
       .replaceAll(pluginDirRename[0], pluginDirRename[1]) // 插件换名， 因为官方禁止反编译 __ 开头 目录
-    saveLocalFile(this.pathInfo.outputResolve(outputFileName), appConfigSaveString, {force: true})
+    saveLocalFile(this.pathInfo.outputResolve(outputFileName), appConfigSaveString, { force: true })
     printLog(" Completed " + ` (${appConfigSaveString.length}) \t` + colors.bold(colors.gray(this.pathInfo.outputResolve(outputFileName))))
-    printLog(` \u25B6 反编译 ${outputFileName} 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译 ${outputFileName} 文件成功. \n`, { isStart: true })
   }
 
   /**
@@ -188,7 +188,7 @@ export class AppDecompilation extends BaseDecompilation {
         },
       }
     })
-    vm.run(this.codeInfo.appService)
+    runVmCode(vm, this.codeInfo.appService)
     // 解析代码中的各个模块  json 配置
     this._injectPluginAppPageJSON(vm, plugins) // 要在解析 __wxAppCode__ 之前将插件的page.json配置注入 __wxAppCode__
     const __wxAppCode__ = Object.assign(vm.sandbox.__wxAppCode__, vm.sandbox.global?.__wxAppCode__ || {});
@@ -204,9 +204,9 @@ export class AppDecompilation extends BaseDecompilation {
       }
       // console.log(jsonOutputPath)
       printLog(" Completed " + ` (${realJsonConfigString.length}) \t` + colors.bold(colors.gray(jsonOutputPath)))
-      saveLocalFile(this.pathInfo.outputResolve(jsonOutputPath), realJsonConfigString, {force: true})
+      saveLocalFile(this.pathInfo.outputResolve(jsonOutputPath), realJsonConfigString, { force: true })
     }
-    printLog(` \u25B6 反编译所有 page json 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译所有 page json 文件成功. \n`, { isStart: true })
   }
 
   /**
@@ -252,10 +252,10 @@ export class AppDecompilation extends BaseDecompilation {
       appServiceCode = appServiceCode
         .replaceAll('=__webnode__.define;', ';')
         .replaceAll('=__webnode__.require;', ';')
-      vm.run(appServiceCode)
+      runVmCode(vm, appServiceCode)
       Object.assign(vm.sandbox, sandbox)
       this._decompilePluginAppJS(vm, plugins)
-      printLog(` \u25B6 反编译所有 js 文件成功. \n`, {isStart: true})
+      printLog(` \u25B6 反编译所有 js 文件成功. \n`, { isStart: true })
     }
   }
 
@@ -338,9 +338,9 @@ export class AppDecompilation extends BaseDecompilation {
     //   'var setCssToHead=function(file,_xcInvalid,info){ return {file, info} ', 
     // )
     const vm = createVM({
-      sandbox: {__COMMON_STYLESHEETS_HOOK__: {}}
+      sandbox: { __COMMON_STYLESHEETS_HOOK__: {} }
     })
-    vm.run(code)
+    runVmCode(vm, code)
     /* 拦截直接执行 的 全局 css */
     let lastMatch = null
     do {
@@ -359,15 +359,15 @@ export class AppDecompilation extends BaseDecompilation {
     const __wxAppCode__ = vm.sandbox['__wxAppCode__']
     for (let cssPath in __wxAppCode__) {
       if (path.extname(cssPath) !== '.wxss') continue
-      const {file: astList, info = {}} = __wxAppCode__[cssPath]()
-      this._setCssToHead(astList, null, {path: cssPath, suffix: info.suffix})
+      const { file: astList, info = {} } = __wxAppCode__[cssPath]()
+      this._setCssToHead(astList, null, { path: cssPath, suffix: info.suffix })
     }
     /* 拦截 @import 引入的的公共 css */
     const __COMMON_STYLESHEETS_HOOK__ = vm.sandbox.__COMMON_STYLESHEETS_HOOK__ || {}
     for (let cssPath in __COMMON_STYLESHEETS_HOOK__) {
       const astList = __COMMON_STYLESHEETS_HOOK__[cssPath]
       cssPath = path.join(this.pathInfo.packRootPath, cssPath)
-      this._setCssToHead(astList, null, {path: cssPath})
+      this._setCssToHead(astList, null, { path: cssPath })
     }
   }
 
@@ -378,7 +378,7 @@ export class AppDecompilation extends BaseDecompilation {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code.trim()) return
     const vm = createVM()
-    vm.run(code)
+    runVmCode(vm, code)
     const __wxAppCode__ = vm.sandbox['__wxAppCode__']
     if (!__wxAppCode__) return
     const children = vm.sandbox.window.document.head.children || [] as HTMLStyleElement[]
@@ -409,7 +409,7 @@ export class AppDecompilation extends BaseDecompilation {
       printLog(" Completed " + ` (${cssText.length}) \t` + colors.bold(colors.gray(wxss_path)))
     })
     if (children.length) {
-      printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, {isStart: true})
+      printLog(` \u25B6 反编译所有 wxss 文件成功. \n`, { isStart: true })
     }
   }
 
@@ -468,7 +468,7 @@ export class AppDecompilation extends BaseDecompilation {
         setTimeout
       }
     })
-    vm.run(code)
+    runVmCode(vm, code)
 
     // 主包 或 分包 自身插件的 模块 定义信息
     const PLUGINS: Record<string, ModuleDefine> = {}
@@ -573,13 +573,13 @@ export class AppDecompilation extends BaseDecompilation {
 
   private async decompileAppWXS() {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
-    const {ALL_MODULES, PLUGINS} = this.executeAllGwxFunction(code)
+    const { ALL_MODULES, PLUGINS } = this.executeAllGwxFunction(code)
     const wxsRefInfo = []
     for (const wxmlPath in ALL_MODULES) {
       if (path.extname(wxmlPath) !== '.wxml') continue
       const wxmlRefWxsInfo = ALL_MODULES[wxmlPath]
       for (const moduleName in wxmlRefWxsInfo) {
-        const {n, func, isInline} = wxmlRefWxsInfo[moduleName]
+        const { n, func, isInline } = wxmlRefWxsInfo[moduleName]
         // console.log(n, 1, wxmlPath, func, isInline, moduleName)
         if (n && func) {
           wxsRefInfo.push(<any>{
@@ -627,11 +627,11 @@ export class AppDecompilation extends BaseDecompilation {
       const wxmlAbsolutePath = this.pathInfo.outputResolve(item.wxmlPath)
       const templateString = item.templateList.join('\n')
       const wxmlCode = readLocalFile(wxmlAbsolutePath)
-      saveLocalFile(wxmlAbsolutePath, `${wxmlCode}\n${templateString}`, {force: true})
+      saveLocalFile(wxmlAbsolutePath, `${wxmlCode}\n${templateString}`, { force: true })
     })
 
     if (Object.keys(wxsRefInfo).length) {
-      printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, {isStart: true})
+      printLog(` \u25B6 反编译所有 wxs 文件成功. \n`, { isStart: true })
     }
   }
 
@@ -656,10 +656,10 @@ export class AppDecompilation extends BaseDecompilation {
   private async decompileAppWXML() {
     let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
     if (!code) return
-    const {ALL_DEFINES, ALL_ENTRYS} = this.executeAllGwxFunction(code)
+    const { ALL_DEFINES, ALL_ENTRYS } = this.executeAllGwxFunction(code)
     let xPool = this._getXPool(code)
     const vm = createVM()
-    vm.run(code)
+    runVmCode(vm, code)
     getZ(code, (z: Record<string, any[]>) => {
       const entrys = ALL_ENTRYS
       for (let wxmlPath in entrys) {
@@ -689,13 +689,13 @@ export class AppDecompilation extends BaseDecompilation {
             })
           }
           const wxmlFullPath = this.pathInfo.outputResolve(wxmlPath)
-          saveLocalFile(wxmlFullPath, result, {force: true})  // 不管文件存在或者存在默认模板， 此时通过 z 反编译出来的文件便是 wxml, 直接保存覆盖 
+          saveLocalFile(wxmlFullPath, result, { force: true })  // 不管文件存在或者存在默认模板， 此时通过 z 反编译出来的文件便是 wxml, 直接保存覆盖 
           printLog(` Completed  (${result.length}) \t${colors.bold(colors.gray(wxmlPath))}`)
         }
       }
     })
     await sleep(200)
-    printLog(` \u25B6 反编译所有 wxml 文件成功. \n`, {isStart: true})
+    printLog(` \u25B6 反编译所有 wxml 文件成功. \n`, { isStart: true })
   }
 
   public async decompileAll(options: { usePx?: boolean } = {}) {
