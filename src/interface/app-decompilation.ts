@@ -212,6 +212,10 @@ export class AppDecompilation extends BaseDecompilation {
       }
 
       for (const key in usingComponents) {
+        if (usingComponents[key].startsWith("/./")){
+          // console.log("🚀 ~ decompileAllJSON ~ usingComponents[key]:", usingComponents[key])
+          usingComponents[key] = usingComponents[key].substring(3)
+        }
         usingComponents[key] = path.join(path.dirname(filePath), usingComponents[key])
       }
 

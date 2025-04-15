@@ -191,8 +191,7 @@ export class DecompilationController {
 
     const allPage = await this._analyticalCompDependence(appConfigPages)
 
-    const allPageAndComp = allPage
-      .filter(_path => !isPluginPath(_path))
+    const allPageAndComp = allPage.filter(_path => !isPluginPath(_path))
 
     for (let pagePath of allPageAndComp) {
       // console.log("🚀 ~ DecompilationController ~ generateDefaultAppFiles ~ pagePath:", pagePath)
