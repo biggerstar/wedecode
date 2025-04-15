@@ -166,6 +166,16 @@ export class AppDecompilation extends BaseDecompilation {
     if (this.convertPlugin) {
       appConfig.plugins = {} // 插件从远程替换成本地编译使用
     }
+
+    // componentFramework的 旧版值为 exparser,  Skyline引擎值为 glasss-easel
+    if (appConfig.componentFramework) {
+      appConfig.componentFramework = appConfig.componentFramework?.default ||
+        appConfig.componentFramework.allUsed?.[0] ||
+        appConfig.componentFramework
+    }
+
+    delete appConfig.ext
+
     appJsonExcludeKeys.forEach(key => delete appConfig[key])
     const outputFileName = 'app.json'
     const appConfigSaveString = JSON
@@ -196,6 +206,15 @@ export class AppDecompilation extends BaseDecompilation {
       if (path.extname(filePath) !== '.json') continue
       let tempFilePath = filePath
       const pageJson: Record<any, any> = __wxAppCode__[filePath]
+      const { componentPlaceholder, usingComponents } = pageJson
+      if (componentPlaceholder) { // 处理异步分包加载占位符
+        Object.keys(componentPlaceholder).forEach(name => componentPlaceholder[name] = 'view')
+      }
+
+      for (const key in usingComponents) {
+        usingComponents[key] = path.join(path.dirname(filePath), usingComponents[key])
+      }
+
       let realJsonConfigString = JSON.stringify(pageJson, null, 2)
       let jsonOutputPath = filePath
       if (isPluginPath(filePath)) {
@@ -426,12 +445,14 @@ export class AppDecompilation extends BaseDecompilation {
     code = code.slice(code.indexOf(funcHeader) + funcHeader.length, code.lastIndexOf(funcEnd)).replaceAll('nv_', '')
     code = code.replace(wxsCodeRequireReg, (matchString: string) => {
       const newRequireString = resetWxsRequirePath(matchString, './')
-        .replace("require('", '')
-        .replace("')();", '')
+        .replace(`require("`, '')
+        .replace(`")();`, '')
+      // console.log(newRequireString)
       let relativePath = path.relative(
         this.pathInfo.resolve(path.dirname(basePath)),
         this.pathInfo.resolve(newRequireString),
       );
+      // console.log("🚀 ~ code=code.replace ~ relativePath:", relativePath)
       return `require('${relativePath}');`
     })
     const matchInfo = matchReturnReg.exec(code)
@@ -580,7 +601,7 @@ export class AppDecompilation extends BaseDecompilation {
       const wxmlRefWxsInfo = ALL_MODULES[wxmlPath]
       for (const moduleName in wxmlRefWxsInfo) {
         const { n, func, isInline } = wxmlRefWxsInfo[moduleName]
-        // console.log(n, 1, wxmlPath, func, isInline, moduleName)
+        // console.log(n)
         if (n && func) {
           wxsRefInfo.push(<any>{
             wxmlPath: wxmlPath,

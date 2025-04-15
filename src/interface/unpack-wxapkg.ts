@@ -4,6 +4,7 @@ import fs from "node:fs";
 import {findCommonRoot, getPathResolveInfo, printLog} from "@/utils/common";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {MiniAppType, MiniPackType, UnPackInfo} from "@/type";
+import path from "node:path";
 
 /**
  * 用于解包
@@ -90,7 +91,7 @@ export class UnpackWxapkg {
     if (fs.existsSync(outputPathInfo.gameJsPath)) {
       appType = 'game'
     }
-    printLog(`\n \u25B6 解小程序压缩包成功! 文件总数: ${colors.green(fileList.length)}`, {isStart: true})
+    printLog(`\n \u25B6 解小程序压缩包 ${colors.blue(path.basename(inputPath))} 成功! 文件总数: ${colors.green(fileList.length)}`, {isStart: true})
     return {
       appType,
       packType,

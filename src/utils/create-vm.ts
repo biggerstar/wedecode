@@ -51,6 +51,6 @@ export function runVmCode(vm: VM, code: string) {
   try {
     vm.run(code)
   } catch (e) {
-    console.log("🚀 ~ 捕获到错误: ( 该错误只会影响小部分页面模块运行 )", e)
+    console.log(e.message)
   }
 }
