@@ -120,14 +120,12 @@ export class BaseDecompilation {
       code = code.replaceAll('require("@babel', 'require("./@babel')
       resultCode = jsBeautify(code.trim());
     }
-    if (resultCode.trim()) {
-      saveLocalFile(
-        this.pathInfo.outputResolve(name),
-        removeVM2ExceptionLine(resultCode),
-        {force: true}
-      )
-      printLog(" Completed " + ` (${resultCode.length}) \t` + colors.bold(colors.gray(name)))
-    }
+    saveLocalFile(
+      this.pathInfo.outputResolve(name),
+      removeVM2ExceptionLine(resultCode.trim()),
+      {force: true}
+    )
+    printLog(" Completed " + ` (${resultCode.length}) \t` + colors.bold(colors.gray(name)))
   }
 
 }
