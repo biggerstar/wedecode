@@ -1,6 +1,6 @@
 {
   "name": "wedecode",
-  "version": "0.6.8",
+  "version": "0.8.0-beta",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {

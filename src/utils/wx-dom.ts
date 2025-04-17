@@ -35,14 +35,33 @@ export function createWxFakeDom() {
     WXWebAssembly: {},
     __wxCodeSpace__: {},
     wx: {
-      getStorageSync() {
-      },
-      setStorageSync() {
-      },
-      getStorage() {
-      },
-      setStorage() {
-      },
+      request() { },
+      getExtConfig() { },
+      getExtConfigSync() { },
+      postMessageToReferrerPage: function () { },
+      postMessageToReferrerMiniProgram: function () { },
+      onUnhandledRejection: function () { },
+      onThemeChange: function () { },
+      onPageNotFound: function () { },
+      onLazyLoadError: function () { },
+      onError: function () { },
+      onAudioInterruptionEnd: function () { },
+      onAudioInterruptionBegin: function () { },
+      onAppShow: function () { },
+      onAppHide: function () { },
+      offUnhandledRejection: function () { },
+      offThemeChange: function () { },
+      offPageNotFound: function () { },
+      offLazyLoadError: function () { },
+      offError: function () { },
+      offAudioInterruptionEnd: function () { },
+      offAudioInterruptionBegin: function () { },
+      offAppShow: function () { },
+      offAppHide: function () { },
+      getStorageSync: function () { },
+      setStorageSync: function () { },
+      getStorage: function () { },
+      setStorage: function () { },
       getSystemInfo() {
         return systemInfo
       },
@@ -65,9 +84,6 @@ export function createWxFakeDom() {
           height: 0
         }
       },
-      request(){},
-      getExtConfig(){},
-      getExtConfigSync(){},
     },
   }
 }
