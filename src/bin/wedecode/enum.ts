@@ -2,13 +2,19 @@ import {PUBLIC_OUTPUT_PATH} from "@/constant";
 import process from "node:process";
 
 export const globPathList: string[] = [ // 末尾不要带 * 号
-  // macGlob
+  /* macGlob */ 
+  // 版本3+
   '/Users/*/Library/Containers/*/Data/.wxapplet/packages',
+  // 版本4.0+
+  '/Users/*/Library/Containers/*/Data/Documents/app_data/radium/Applet/packages',
+  
+  /* winGlob */ 
   'C:\\Users\\weixin\\WeChat Files\\',
   'D:\\Users\\weixin\\WeChat Files\\',
-  // winGlob
   'C:\\Users\\*\\Documents\\WeChat Files\\Applet',
-  // linuxGlob
+  'D:\\Users\\*\\Documents\\WeChat Files\\Applet',
+  
+  /* linuxGlob */ 
   '/home/*/.config/WeChat/Applet'
 ]
 
@@ -24,7 +30,7 @@ export enum CacheClearEnum {
 }
 
 export enum OperationModeEnum {
-  autoScan = '\u25B6 自动扫描小程序包 (Beta)',
+  autoScan = '\u25B6 自动扫描小程序包',
   manualScan = '\u25B6 手动设定扫描目录',
   manualDir = '\u25B6 直接指定包路径( 非扫描 )',
 }
