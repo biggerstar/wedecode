@@ -11,8 +11,12 @@ export const globPathList: string[] = [ // 末尾不要带 * 号
   /* winGlob */ 
   'C:\\Users\\weixin\\WeChat Files\\',
   'D:\\Users\\weixin\\WeChat Files\\',
+  'E:\\Users\\weixin\\WeChat Files\\',
+  'F:\\Users\\weixin\\WeChat Files\\',
   'C:\\Users\\*\\Documents\\WeChat Files\\Applet',
   'D:\\Users\\*\\Documents\\WeChat Files\\Applet',
+  'E:\\Users\\*\\Documents\\WeChat Files\\Applet',
+  'F:\\Users\\*\\Documents\\WeChat Files\\Applet',
   
   /* linuxGlob */ 
   '/home/*/.config/WeChat/Applet'
