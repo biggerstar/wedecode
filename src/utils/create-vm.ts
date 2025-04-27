@@ -39,6 +39,7 @@ export function createVM(vmOptions: VMOptions = {}) {
         setRuntimeGlobals: () => void 0,
         addComponentStaticConfig: () => void 0,
         setStyleScope: () => void 0,
+        enableCodeChunk: () => void 0,
         addTemplateDependencies: () => void 0,
         batchAddCompiledScripts: () => void 0,
         batchAddCompiledTemplate: () => void 0,
