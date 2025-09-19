@@ -126,10 +126,6 @@ export class AppDecompilation extends BaseDecompilation {
         subPackages.push(subPackage);
       })
       subPackages = subPackages.filter(sub => (sub.pages || []).length > 0)
-      if (Object.keys(subPackages).length >= 100) {
-        console.log(` ▶ ${colors.red('程序主动结束编译, 因为 subPackages 包个数超过限制 100, 超过微信限制')}`)
-        process.exit(0)
-      }
       delete appConfig.subPackages
       appConfig.subPackages = subPackages;
     }
