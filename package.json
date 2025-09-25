@@ -1,6 +1,6 @@
 {
   "name": "wedecode",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {
@@ -54,8 +54,7 @@
     "picocolors": "^1.0.1",
     "single-line-log": "^1.1.2",
     "update-check": "^1.5.4",
-    "vm2": "^3.9.19",
-    "wedecode": "link:"
+    "vm2": "^3.9.19"
   },
   "devDependencies": {
     "@types/cssbeautify": "^0.3.5",
