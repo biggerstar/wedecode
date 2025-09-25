@@ -40,7 +40,8 @@ TODO
 
 ### 准备
 
-该工具只能在有 `nodejs` 环境设备上运行， 如果您还没有 `nodejs` 环境，点这里 [去准备环境](https://nodejs.org/)
+该工具只能在有 `nodejs` 环境设备上运行， 如果您还没有 `nodejs` 环境，点这里 [去准备环境](https://nodejs.org/)  
+nodejs 版本最好使用 v18+  
 
 ### 安装工具
 
