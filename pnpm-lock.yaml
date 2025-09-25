@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  wedecode: 'link:'
+
 importers:
 
   .:
@@ -62,6 +65,9 @@ importers:
       vm2:
         specifier: ^3.9.19
         version: 3.9.19
+      wedecode:
+        specifier: 'link:'
+        version: 'link:'
     devDependencies:
       '@types/cssbeautify':
         specifier: ^0.3.5

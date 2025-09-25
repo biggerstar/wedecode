@@ -1,7 +1,7 @@
 import {glob} from "glob";
 import {clearScreen} from "@/utils/common";
 import colors from "picocolors";
-import {PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo} from "@/type";
+import {PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo} from "@/typings";
 import axios, {AxiosRequestConfig} from "axios";
 import path from "node:path";
 import prompts from "@/bin/wedecode/inquirer";

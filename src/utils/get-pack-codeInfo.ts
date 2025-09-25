@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import {AppCodeInfo, GameCodeInfo, PathResolveInfo} from "@/type";
+import {AppCodeInfo, GameCodeInfo, PathResolveInfo} from "@/typings";
 import {readLocalFile} from "@/utils/fs-process";
 
 /**

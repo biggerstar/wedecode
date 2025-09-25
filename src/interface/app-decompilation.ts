@@ -11,7 +11,7 @@ import { readLocalFile, saveLocalFile } from "@/utils/fs-process";
 import { appJsonExcludeKeys, cssBodyToPageReg, pluginDirRename } from "@/constant";
 import { getZ } from "@/utils/get-z";
 import { tryDecompileWxml } from "@/utils/decompile-wxml";
-import { AppCodeInfo, ExecuteAllGwxFunction, ModuleDefine, UnPackInfo, WxmlRenderFunction, WxsRefInfo } from "@/type";
+import { AppCodeInfo, ExecuteAllGwxFunction, ModuleDefine, UnPackInfo, WxmlRenderFunction, WxsRefInfo } from "@/typings";
 import {
   arrayDeduplication,
   getParameterNames,

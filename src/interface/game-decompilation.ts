@@ -2,7 +2,7 @@ import colors from "picocolors";
 import {saveLocalFile} from "@/utils/fs-process";
 import {createVM, runVmCode} from "@/utils/create-vm";
 import {printLog, sleep} from "@/utils/common";
-import {GameCodeInfo, UnPackInfo} from "@/type";
+import {GameCodeInfo, UnPackInfo} from "@/typings";
 import {BaseDecompilation} from "@/interface/base-decompilation";
 import {getGamePackCodeInfo} from "@/utils/get-pack-codeInfo";
 import {GameJsonExcludeKeys} from "@/constant";

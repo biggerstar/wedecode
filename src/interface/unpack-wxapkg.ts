@@ -3,7 +3,7 @@ import process from "node:process";
 import fs from "node:fs";
 import {findCommonRoot, getPathResolveInfo, printLog} from "@/utils/common";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
-import {MiniAppType, MiniPackType, UnPackInfo} from "@/type";
+import {MiniAppType, MiniPackType, UnPackInfo} from "@/typings";
 import path from "node:path";
 
 /**

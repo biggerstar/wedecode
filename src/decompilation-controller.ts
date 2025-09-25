@@ -9,7 +9,7 @@ import { removeAppFileList, removeGameFileList } from "@/constant";
 import path from "node:path";
 import { GameDecompilation } from "@/interface/game-decompilation";
 import { AppDecompilation } from "@/interface/app-decompilation";
-import { DecompilationControllerState, PackTypeMapping, PathResolveInfo } from "@/type";
+import { DecompilationControllerState, PackTypeMapping, PathResolveInfo } from "@/typings";
 import { UnpackWxapkg } from "@/interface/unpack-wxapkg";
 
 

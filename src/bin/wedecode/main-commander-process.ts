@@ -1,4 +1,4 @@
-import {ScanPackagesResultInfo} from "@/type";
+import {ScanPackagesResultInfo} from "@/typings";
 import {OperationModeEnum, StreamPathDefaultEnum} from "@/bin/wedecode/enum";
 import {startSacnPackagesProcess} from "@/bin/wedecode/scan";
 import {checkExistsWithFilePath, startCacheQuestionProcess} from "@/bin/wedecode/common";

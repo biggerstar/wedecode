@@ -11,7 +11,7 @@ import {
   PackTypeMapping,
   PathResolveInfo,
   UnPackInfo
-} from "@/type";
+} from "@/typings";
 import {commonDir, jsBeautify, printLog, removeVM2ExceptionLine, sleep} from "@/utils/common";
 
 export class BaseDecompilation {

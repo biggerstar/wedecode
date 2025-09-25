@@ -8,7 +8,7 @@ import {CacheClearEnum, YesOrNoEnum, OperationModeEnum} from "@/bin/wedecode/enu
 import {SelectTableTablePrompt} from "@biggerstar/inquirer-selectable-table";
 import {clearScreen, sleep} from "@/utils/common";
 import process from "node:process";
-import {ScanTableOptions} from "@/type";
+import {ScanTableOptions} from "@/typings";
 
 inquirer.registerPrompt("table", SelectTableTablePrompt);
 process.stdout.setMaxListeners(200)
