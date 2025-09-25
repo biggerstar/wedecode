@@ -1,5 +1,5 @@
 import {glob} from "glob";
-import {clearScreen} from "@/utils/common";
+import {clearScreen, sleep} from "@/utils/common";
 import colors from "picocolors";
 import {PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo} from "@/typings";
 import axios, {AxiosRequestConfig} from "axios";
@@ -89,7 +89,7 @@ async function sacnPackages(manualScanPath: string = ''): Promise<SacnPackagesPa
       ${colors.red('未找到小程序包，您需要电脑先访问某个小程序后产生缓存再扫描， 如果还扫描不到请反馈 ')}    
       当前所处目录: $ ${colors.yellow(path.resolve(manualScanPath || './'))}
       
-      \u25B6 请注意扫描功能还在测试阶段，如果出现问题请到 github 反馈
+      \u25B6 随着微信版本更新, 新版本小程序路径可能和已知位置不一样, 如果出现问题请到 github 反馈
       \u25B6 提交时请带上您电脑中小程序的 '${colors.bold('微信官方的 wxapkg 包在硬盘中的存放路径')}' 和 '${colors.bold('微信版本号')}'
       \u25B6 https://github.com/biggerstar/wedecode/issues
       `)

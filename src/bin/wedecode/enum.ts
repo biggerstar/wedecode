@@ -1,32 +1,45 @@
-import {PUBLIC_OUTPUT_PATH} from "@/constant";
-import process from "node:process";
+import { PUBLIC_OUTPUT_PATH } from '@/constant';
+import process from 'node:process';
+import os from 'node:os';
 
-export const globPathList: string[] = [ // 末尾不要带 * 号
-  /* macGlob */ 
+const macGlob: string[] = [
   // 版本3+
   '/Users/*/Library/Containers/*/Data/.wxapplet/packages',
   // 版本4.0+
   '/Users/*/Library/Containers/*/Data/Documents/app_data/radium/Applet/packages',
-  
-  /* winGlob */ 
-  'C:\\Users\\weixin\\WeChat Files\\',
-  'D:\\Users\\weixin\\WeChat Files\\',
-  'E:\\Users\\weixin\\WeChat Files\\',
-  'F:\\Users\\weixin\\WeChat Files\\',
+];
+
+const winGlob: string[] = [
+  // 版本3+
+  'C:\\Users\\*\\weixin\\WeChat Files',
   'C:\\Users\\*\\Documents\\WeChat Files\\Applet',
-  'D:\\Users\\*\\Documents\\WeChat Files\\Applet',
-  'E:\\Users\\*\\Documents\\WeChat Files\\Applet',
-  'F:\\Users\\*\\Documents\\WeChat Files\\Applet',
-  
-  /* linuxGlob */ 
-  '/home/*/.config/WeChat/Applet'
-]
+  // 版本4.0+
+  'C:\\Users\\*\\Documents\\xwechat_files',
+  'C:\\Users\\*\\AppData\\Roaming\\*\\xwechat\\radium\\Applet\\packages',
+];
 
+const linuxGlob: string[] = [
+  '/home/*/.config/WeChat/Applet',
+];
 
-/**
- * 主包文件名特征
- * */
-export const AppMainPackageNames: string[] = ['__APP__.wxapkg', 'app.wxapkg']
+/* ---------- 根据平台导出 ---------- */
+function getPlatformGlob(): string[] {
+  const platform = os.platform();
+  switch (platform) {
+    case 'win32':
+      return winGlob;
+    case 'darwin':
+      return macGlob;
+    case 'linux':
+      return linuxGlob;
+    default:
+      return [];
+  }
+}
+
+export const globPathList: string[] = getPlatformGlob();
+
+export const AppMainPackageNames: string[] = ['__APP__.wxapkg', 'app.wxapkg'];
 
 export enum CacheClearEnum {
   clear = '清空',
@@ -50,4 +63,4 @@ export enum YesOrNoEnum {
   no = '否',
 }
 
-export const isDev = process.env.DEV === 'true'
+export const isDev = process.env.DEV === 'true';
