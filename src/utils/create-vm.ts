@@ -20,6 +20,12 @@ export function createVM(vmOptions: VMOptions = {}) {
       ...createWxFakeDom(),
       setInterval: () => null,
       setTimeout: () => null,
+      console: {
+        ...console,  // 在 vm 执行的时候，对于小程序源码中的 info, log, warn 打印直接忽略
+        log: ()=> void 0,
+        warn: ()=> void 0,
+        info: ()=> void 0,
+      },
       window: vm_window,
       location: dom.window.location,
       navigator: vm_navigator,
