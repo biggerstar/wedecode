@@ -33,13 +33,14 @@ async function setInputAndOutputPath(config: Record<any, any>, opt: {
     }
   }
   if (!hasOutputPath) {
+    let outputSubName: string = StreamPathDefaultEnum.defaultOutputPath
     if (packInfo) { // 没手动指定路径并且发现路径中的 appId 存在，则自动指定输出到名为 appName 或 appId 的目录
-      config.outputPath = packInfo.appName || packInfo.appId
+      outputSubName = packInfo.appName || packInfo.appId
     } else {
       const {outputPath} = await prompts.questionOutputPath()
-      config.outputPath = outputPath || StreamPathDefaultEnum.defaultOutputPath
+      outputSubName = outputPath || outputSubName
     }
-    config.outputPath = path.resolve(StreamPathDefaultEnum.publicOutputPath, config.outputPath)
+    config.outputPath = path.resolve((packInfo?.storagePath || './'), StreamPathDefaultEnum.publicOutputPath, outputSubName)
   }
 }
 
@@ -56,7 +57,7 @@ export async function startMainCommanderProcess(args: string[], argMap: Record<s
   }
   await setInputAndOutputPath(config, {hasInputPath, hasOutputPath})
   if (!checkExistsWithFilePath(config.inputPath, {throw: true})) return false
-  // 经过下面转换， 文件输出位置最终都会在改小程序包同级目录下的 __OUTPUT__ 文件夹中输出
+  // 经过上面转换， 文件输出位置最终都会在该小程序包同级目录下的 OUTPUT 文件夹中输出
   await startCacheQuestionProcess(isClear, config.inputPath, config.outputPath)
   const decompilationController = new DecompilationController(config.inputPath, config.outputPath)
   decompilationController.setState({

@@ -1,12 +1,12 @@
 import fs from "node:fs";
-import {isWxAppid, printLog, sleep} from "@/utils/common";
-import {glob} from "glob";
+import { isWxAppid, printLog, sleep } from "@/utils/common";
+import { glob } from "glob";
 import colors from "picocolors";
 import path from "node:path";
 import pkg from "../../../package.json";
 import checkForUpdate from "update-check";
 import figlet from "figlet";
-import {CacheClearEnum} from "@/bin/wedecode/enum";
+import { CacheClearEnum } from "@/bin/wedecode/enum";
 import prompts from "@/bin/wedecode/inquirer";
 import process from "node:process";
 import axios from "axios";
@@ -73,7 +73,7 @@ export async function startCacheQuestionProcess(isClear: boolean, inputPath: str
   if (fs.existsSync(OUTPUT_PATH)) {
     const isClearCache = isClear ? CacheClearEnum.clear : (await prompts.isClearOldCache(OUTPUT_PATH))['isClearCache']
     if (isClearCache === CacheClearEnum.clear || isClear) {
-      fs.rmSync(OUTPUT_PATH, {recursive: true})
+      fs.rmSync(OUTPUT_PATH, { recursive: true })
       printLog(`\n \u25B6 移除旧产物成功 `)
     }
   }
@@ -84,7 +84,7 @@ export function checkExistsWithFilePath(targetPath: string, opt: {
   checkWxapkg?: boolean,
   showInputPathLog?: boolean
 }): boolean {
-  const {throw: isThrow = true, checkWxapkg = true, showInputPathLog = true} = opt || {}
+  const { throw: isThrow = true, checkWxapkg = true, showInputPathLog = true } = opt || {}
   const printErr = (log: string) => {
     if (showInputPathLog) {
       console.log('\n输入路径: ', colors.yellow(path.resolve(targetPath)));
@@ -135,7 +135,7 @@ export function getPathSplitList(_path: string) {
 }
 
 export function findWxAppIdPath(_path: string) {
-  const {partList, delimiter} = getPathSplitList(_path)
+  const { partList, delimiter } = getPathSplitList(_path)
   let newPathList = [...partList]
   for (const index in partList.reverse()) {
     const dirName = partList[index]
@@ -147,14 +147,18 @@ export function findWxAppIdPath(_path: string) {
   return newPathList.join(delimiter).trim()
 }
 
+export function findWxAppIdForPath(_path: string) {
+  return path.parse(findWxAppIdPath(_path)).name
+}
+
 export async function internetAvailable() {
   return axios
     .request({
       url: 'https://bing.com',
       maxRedirects: 0,
       timeout: 2000,
-      validateStatus: ()=> true
+      validateStatus: () => true
     })
-    .then(()=> true)
-    .catch(()=> Promise.resolve(false))
+    .then(() => true)
+    .catch(() => Promise.resolve(false))
 }

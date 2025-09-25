@@ -5,9 +5,10 @@ import { PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo } from 
 import axios, { AxiosRequestConfig } from "axios";
 import path from "node:path";
 import prompts from "@/bin/wedecode/inquirer";
-import { AppMainPackageNames, globPathList, YesOrNoEnum } from "@/bin/wedecode/enum";
-import { findWxAppIdPath, getPathSplitList, stopCommander } from "@/bin/wedecode/common";
+import { AppMainPackageNames, globPathList, StreamPathDefaultEnum, YesOrNoEnum } from "@/bin/wedecode/enum";
+import { findWxAppIdForPath, findWxAppIdPath, getPathSplitList, stopCommander } from "@/bin/wedecode/common";
 import fs from "node:fs";
+import os from "node:os";
 
 /**
  * 判断是否是个可能扫描大量文件系统的路径
@@ -49,7 +50,8 @@ function findWxMiniProgramPackDir(manualScanPath: string) {
       let appId = partList.filter(Boolean).pop() // 默认使用所在文件夹名称
       if (isFoundWxId) {
         appIdPath = foundPath
-        appId = appIdPath.split('/').pop()  // 如果有找到 appId 则使用其作为名称  
+        // 如果有找到 appId 则使用其作为名称
+        appId = findWxAppIdForPath(_path)
       }
       foundPackageList.push({
         isAppId: isFoundWxId,
@@ -84,7 +86,6 @@ async function sacnPackages(manualScanPath: string = ''): Promise<SacnPackagesPa
 
   scanPathList.forEach(matchPath => {
     const foundPList = findWxMiniProgramPackDir(matchPath)
-    console.log(foundPList);
     foundPList.forEach(item => foundPackageList.push(item))
   })
   // console.log(foundPackageList)
