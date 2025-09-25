@@ -1,12 +1,12 @@
-import {glob} from "glob";
-import {clearScreen, sleep} from "@/utils/common";
+import { glob } from "glob";
+import { clearScreen } from "@/utils/common";
 import colors from "picocolors";
-import {PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo} from "@/typings";
-import axios, {AxiosRequestConfig} from "axios";
+import { PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo } from "@/typings";
+import axios, { AxiosRequestConfig } from "axios";
 import path from "node:path";
 import prompts from "@/bin/wedecode/inquirer";
-import {AppMainPackageNames, globPathList, YesOrNoEnum} from "@/bin/wedecode/enum";
-import {findWxAppIdPath, getPathSplitList, stopCommander} from "@/bin/wedecode/common";
+import { AppMainPackageNames, globPathList, YesOrNoEnum } from "@/bin/wedecode/enum";
+import { findWxAppIdPath, getPathSplitList, stopCommander } from "@/bin/wedecode/common";
 import fs from "node:fs";
 
 /**
@@ -25,7 +25,11 @@ function inDangerScanPathList(_path: string) {
  * */
 function findWxMiniProgramPackDir(manualScanPath: string) {
   const foundPackageList: SacnPackagesPathItem[] = []
-  glob.globSync(path.resolve(manualScanPath, '**/*.wxapkg'))
+  glob.globSync(path.resolve(manualScanPath, '**/*.wxapkg'), {
+    dot: true,
+    windowsPathsNoEscape: true,
+    nocase: true
+  })
     .map((_path) => {
       const foundMainPackage = AppMainPackageNames.find(fileName => _path.endsWith(fileName))
       if (foundMainPackage) return _path
@@ -41,7 +45,7 @@ function findWxMiniProgramPackDir(manualScanPath: string) {
       const foundPath = findWxAppIdPath(_path)
       const isFoundWxId = !!foundPath
       let appIdPath = path.dirname(_path)
-      const {partList} = getPathSplitList(appIdPath)
+      const { partList } = getPathSplitList(appIdPath)
       let appId = partList.filter(Boolean).pop() // 默认使用所在文件夹名称
       if (isFoundWxId) {
         appIdPath = foundPath
@@ -67,7 +71,7 @@ async function sacnPackages(manualScanPath: string = ''): Promise<SacnPackagesPa
   if (Boolean(manualScanPath.trim())) {  // 这里空字符串的话将会使用默认 globPathList 列表去匹配
     const absolutePath = path.resolve(manualScanPath)
     if (inDangerScanPathList(absolutePath)) {
-      const {dangerScan} = await prompts.showDangerScanPrompt(absolutePath)
+      const { dangerScan } = await prompts.showDangerScanPrompt(absolutePath)
       if (dangerScan === YesOrNoEnum.no) {
         stopCommander()
       }
@@ -80,6 +84,7 @@ async function sacnPackages(manualScanPath: string = ''): Promise<SacnPackagesPa
 
   scanPathList.forEach(matchPath => {
     const foundPList = findWxMiniProgramPackDir(matchPath)
+    console.log(foundPList);
     foundPList.forEach(item => foundPackageList.push(item))
   })
   // console.log(foundPackageList)
@@ -129,7 +134,7 @@ export async function startSacnPackagesProcess(manualScanPath?: string): Promise
         description: item.storagePath
       }
       const appId = item.appId
-      const {nickname, description} = await getWxAppInfo(appId);
+      const { nickname, description } = await getWxAppInfo(appId);
       return {
         appName: nickname || appId,
         updateDate: dateString,
@@ -150,7 +155,7 @@ export async function startSacnPackagesProcess(manualScanPath?: string): Promise
   })
   const foundIndex = rows
     .findIndex(item => item.appName === result.packInfo?.appName)
-  const packInfo = {...rows[foundIndex], ...foundPackageList[foundIndex]}
+  const packInfo = { ...rows[foundIndex], ...foundPackageList[foundIndex] }
   console.log(`$ 选择了 ${packInfo.appName}( ${packInfo.appId} )`)
 
   return packInfo
@@ -164,8 +169,8 @@ async function getWxAppInfo(appid: string): Promise<Partial<PackageInfoResult>> 
     method: 'POST',
     timeout: 6000,
     url: 'https://kainy.cn/api/weapp/info/',
-    headers: {'content-type': 'application/json'},
-    data: {appid: appid}
+    headers: { 'content-type': 'application/json' },
+    data: { appid: appid }
   };
   return axios
     .request(options)

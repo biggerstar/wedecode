@@ -11,11 +11,11 @@ const macGlob: string[] = [
 
 const winGlob: string[] = [
   // 版本3+
-  'C:\\Users\\*\\weixin\\WeChat Files',
-  'C:\\Users\\*\\Documents\\WeChat Files\\Applet',
+  'C:/Users/*/weixin/WeChat Files',
+  'C:/Users/*/Documents/WeChat Files/Applet',
   // 版本4.0+
-  'C:\\Users\\*\\Documents\\xwechat_files',
-  'C:\\Users\\*\\AppData\\Roaming\\*\\xwechat\\radium\\Applet\\packages',
+  'C:/Users/*/Documents/xwechat_files',
+  'C:/Users/*/AppData/Roaming/*/xwechat/radium/Applet/packages',
 ];
 
 const linuxGlob: string[] = [
