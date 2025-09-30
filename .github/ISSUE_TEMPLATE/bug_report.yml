@@ -1,0 +1,66 @@
+name: 🐛 报告 Bug
+description: 报告 Wedecode 中出现的 bug
+labels: ["bug"]
+body:
+- type: input
+  attributes:
+    label: Wedecode 版本
+    description: |
+      你当前出现 bug 的 Wedecode 版本
+
+    placeholder: 例如 v0.8.1
+  validations:
+    required: true
+- type: dropdown
+  attributes:
+    label: 你当前使用的操作系统
+    multiple: true
+    options:
+      - Windows
+      - macOS
+      - Ubuntu
+      - Other Linux
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: 你当前使用的操作系统版本
+    description: |
+      你当前使用的操作系统版本
+
+    placeholder: "例如: Windows 10 | macOS 10.15.7 | Ubuntu 20.04"
+  validations:
+    required: true
+- type: dropdown
+  attributes:
+    label: 你当前使用的操作系统架构
+    options:
+      - x64
+      - x86
+      - arm64 (包括 Apple Silicon)
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: Bug 描述
+    description: |
+      请详细描述你遇到的 bug。 (可以先看 issue 中没有类似的 bug 再反馈)
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: wxapkg 文件 或 小程序名称
+    description: |
+      必须, 没小程序包无法复现问题, 我们将直接忽略该问题!!!  
+      请给出一个 wxapkg 下载地址，或者提供一个小程序的名称。  
+      该页面左下方 (Paste, drop, or click to add files) 可直接上传文件
+      或者各大网盘或者任意下载地址都行
+    placeholder: |
+      如果使用 github 直接上传则可忽略该框
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: 额外信息
+    description: |
+      如果你的问题需要进一步解释，请在这里添加更多信息。
