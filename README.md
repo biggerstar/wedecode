@@ -44,7 +44,7 @@ TODO
 
 ![wedecode-ui.png](images/wedecode-ui.png)
 
-如果你不想安装 Wedecode 工具， 可以直接在 GitHub 上运行可视化版本
+如果你不想安装 Wedecode 工具， 可以直接在 GitHub 上运行可视化版本( 对网络连通性要求很高 )
 
 > 运行方式: `本界面右上角 Use this template` -> `Open in a codespace`   
 
@@ -73,7 +73,7 @@ nodejs 版本最好使用 v18+
   sudo npm i wedecode -g
 ```
 
-### 运行
+### 本地运行
 
 命令行打开可视化操作页面
 ```shell
