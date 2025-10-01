@@ -5,7 +5,7 @@ import path from "node:path";
 import { glob } from "glob";
 import process from "node:process";
 import cssbeautify from "cssbeautify";
-import { BaseDecompilation } from "./base-decompilation";
+import { BaseDecompilation } from "@/interface/base-decompilation";
 import { createVM, runVmCode } from "@/utils/create-vm";
 import { readLocalFile, saveLocalFile } from "@/utils/fs-process";
 import { appJsonExcludeKeys, cssBodyToPageReg, pluginDirRename } from "@/constant";
@@ -370,7 +370,7 @@ export class AppDecompilation extends BaseDecompilation {
         const func = new Function('setCssToHead', cssSeedCode)
         func(this._setCssToHead.bind(this))
       } catch (e) {
-        console.log(e.message)
+        console.error(e.message)
       }
     } while (lastMatch)
 
@@ -663,7 +663,7 @@ export class AppDecompilation extends BaseDecompilation {
     let xPool = []
     const xPoolReg = /var\s+x=\s*\[(.+)];\$?/g
     const regResList = (code.match(xPoolReg) || [])
-      .sort((a, b) => b.length - a.length) // 排序， 优先匹配内容最多的， 可能会遇到特殊情况，后面再看看
+      .sort((a: string, b: string) => b.length - a.length) // 排序， 优先匹配内容最多的， 可能会遇到特殊情况，后面再看看
     if (regResList.length && regResList[0].includes('var x=[') && regResList[0].includes('.wxml')) {
       xPool = regResList[0]
         .replaceAll('var x=[', '')

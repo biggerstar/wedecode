@@ -22,3 +22,4 @@ test/js/
 OUTPUT
 OUTPUT-GAME
 .DS_Store
+workspaces/*

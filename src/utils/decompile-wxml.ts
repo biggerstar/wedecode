@@ -393,7 +393,7 @@ export function tryDecompileWxml(f_func_code: string, z: Record<string, any[]>, 
   try {
     return getDecompiledWxml(f_func_code, z, xPool) + genReferenceTemplate(z, define)
   } catch (e) {
-    console.log('[tryDecompileWxml]', e.message)
+    console.error('[tryDecompileWxml]', e.message)
     return ''
   }
 }

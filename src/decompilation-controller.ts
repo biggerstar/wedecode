@@ -1,25 +1,30 @@
 import fs from "node:fs";
-import { getPathResolveInfo, isPluginPath, printLog, replaceExt, sleep } from "@/utils/common";
-import colors from "picocolors";
-import { glob } from "glob";
+import { getPathResolveInfo, printLog } from "@/utils/common";
 import { AppMainPackageNames, isDev } from "@/bin/wedecode/enum";
-import { deepmerge } from "@biggerstar/deepmerge";
-import { deleteLocalFile, readLocalFile, readLocalJsonFile, saveLocalFile } from "@/utils/fs-process";
-import { removeAppFileList, removeGameFileList } from "@/constant";
-import path from "node:path";
+import { readLocalFile } from "@/utils/fs-process";
+import { WxAppInfoUtils } from "@/utils/wxapp-info";
+import { ProjectConfigUtils } from "@/utils/project-config";
 import { GameDecompilation } from "@/interface/game-decompilation";
 import { AppDecompilation } from "@/interface/app-decompilation";
-import { DecompilationControllerState, PackTypeMapping, PathResolveInfo } from "@/typings";
+import { DecompilationControllerState, PackTypeMapping, PathResolveInfo, PackageInfoResult } from "@/typings/index";
 import { UnpackWxapkg } from "@/interface/unpack-wxapkg";
+import { FileCleanerUtils } from "@/utils/file-cleaner";
+import { DefaultFilesGeneratorUtils } from "@/utils/default-files-generator";
+
+import colors from "picocolors";
+import { glob } from "glob";
+import path from "node:path";
 
 
-export class DecompilationController {
+class DecompilationController {
   public readonly inputPath: string
   public readonly outputPath: string
+  public readonly workspaceId?: string
   public config: DecompilationControllerState
   public readonly pathInfo: PathResolveInfo
+  private firstPackInfo: any = null // 保存第一个包的信息，用于获取小程序信息
 
-  constructor(inputPath: string, outputPath: string) {
+  constructor(inputPath: string, outputPath: string, workspaceId?: string) {
     if (!inputPath) {
       throw new Error('inputPath 是必须的')
     }
@@ -28,6 +33,7 @@ export class DecompilationController {
     }
     this.inputPath = path.resolve(inputPath)
     this.outputPath = path.resolve(outputPath)
+    this.workspaceId = workspaceId
     this.pathInfo = getPathResolveInfo(this.outputPath)
     this.config = {
       usePx: false,
@@ -44,6 +50,12 @@ export class DecompilationController {
    * */
   private async singlePackMode(wxapkgPath: string, outputPath: string): Promise<void> {
     const packInfo = await UnpackWxapkg.unpackWxapkg(wxapkgPath, outputPath)
+    
+    // 保存第一个包的信息，用于后续获取小程序信息
+    if (!this.firstPackInfo) {
+      this.firstPackInfo = packInfo
+    }
+    
     if (this.config.unpackOnly) return
     if (packInfo.appType === 'game') {
       // 小游戏
@@ -62,6 +74,13 @@ export class DecompilationController {
   }
 
   /**
+   * 尝试获取并更新小程序信息
+   */
+  private async tryGetAndUpdateAppInfo(packInfo: any): Promise<void> {
+    await WxAppInfoUtils.tryGetAndUpdateAppInfoFromPack(this.workspaceId, packInfo, 3000, this.config.wxid);
+  }
+
+  /**
    * 启动反编译流程
    * ]*/
   public async startDecompilerProcess(): Promise<void> {
@@ -69,7 +88,18 @@ export class DecompilationController {
     printLog(`\n \u25B6 当前操作类型: ${colors.yellow(isDirectory ? '分包模式' : '单包模式')}`, { isEnd: true })
     // await this.startJob()
     if (isDirectory) {
-      const wxapkgPathList = glob.globSync(`${this.inputPath}/*.wxapkg`)
+      // 首先尝试查找 .wxapkg 文件
+      let wxapkgPathList = glob.globSync(`${this.inputPath}/*.wxapkg`)
+      
+      // 如果没有找到 .wxapkg 文件，则处理目录中的所有文件
+      if (wxapkgPathList.length === 0) {
+        const allFiles = fs.readdirSync(this.inputPath).map(file => path.join(this.inputPath, file))
+        wxapkgPathList = allFiles.filter(filePath => {
+          const stats = fs.statSync(filePath)
+          return stats.isFile() // 只处理文件，不处理目录
+        })
+      }
+      
       wxapkgPathList.sort((_pathA, _b) => {
         const foundMainPackage = AppMainPackageNames.find(fileName => _pathA.endsWith(fileName))
         if (foundMainPackage) return -1; // 将 'APP.wxapkg' 排到前面, 保证第一个解析的是主包
@@ -85,175 +115,50 @@ export class DecompilationController {
   }
 
   /**
-   * 生成小程序的项目配置
+   * 生成项目配置文件
    * */
   protected async generaProjectConfigFiles() {
-    const projectPrivateConfigJsonPath = path.join(this.outputPath, 'project.private.config.json')
-    const DEV_defaultConfigData = {
-      "setting": {
-        "ignoreDevUnusedFiles": false,
-        "ignoreUploadUnusedFiles": false,
-      }
-    }
-    const defaultConfigData = {
-      "setting": {
-        "es6": false,
-        "urlCheck": false,
-      }
-    }
-    if (isDev) {
-      Object.assign(defaultConfigData.setting, DEV_defaultConfigData.setting)
-    }
-    let finallyConfig = {}
-    const projectPrivateConfigString = readLocalFile(projectPrivateConfigJsonPath)
-    if (projectPrivateConfigString) {
-      const projectPrivateConfigData = JSON.parse(projectPrivateConfigString)
-      deepmerge(projectPrivateConfigData, defaultConfigData)
-      finallyConfig = projectPrivateConfigData
-    } else {
-      finallyConfig = defaultConfigData
-    }
-    saveLocalFile(projectPrivateConfigJsonPath, JSON.stringify(finallyConfig, null, 2), { force: true })
+    await ProjectConfigUtils.generateProjectConfigFiles(this.outputPath);
   }
 
-  private async _analyticalCompDependence(analysisList: string[], deps = []): Promise<string[]> {
-    const readFilePromises = analysisList
-      .map((pageDir: string) => {
-        return new Promise(async (resolve) => {
-          const jsonPath = path.resolve(this.outputPath, path.dirname(pageDir), `${path.basename(pageDir)}.json`)
-          let code = ''
-          try {
-            code = await fs.promises.readFile(jsonPath, 'utf-8')
-          } catch (e) {
-            // no such file or directory
-          }
 
-          resolve({
-            pageDir,
-            jsonPath,
-            code
-          })
-        })
-      })
-    const allJsonCodeList = await Promise.all<Record<any, any>>(readFilePromises)
-
-    const currentCompDep = []
-    for (const info of allJsonCodeList) {
-      deps.push(info.pageDir)
-      try {
-        const pageJson = JSON.parse(info.code)
-        const usingComponents = pageJson.usingComponents
-        if (usingComponents) {
-          const depCompList: string[] = Object.values(usingComponents)
-          for (const compUrl of depCompList) {
-            let depPath = ''
-            if (compUrl.startsWith('/')) {
-              depPath = path.resolve(this.outputPath, compUrl.substring(1))
-            } else {
-              depPath = path.resolve(path.dirname(info.jsonPath), compUrl)
-            }
-            depPath = path.relative(this.outputPath, depPath)
-            if (!deps.includes(depPath)) {
-              // console.log('--------------------------------------------------')
-              // console.log(compUrl)
-              // console.log(info.pageDir)
-              // console.log('dep', depPath)
-              currentCompDep.push(depPath)
-              deps.push(depPath)
-            }
-          }
-        }
-      } catch (e) { }
-
-      // 递归处理依赖
-    }
-    // console.log("🚀 ~ DecompilationController ~ _analyticalCompDependence ~ currentCompDep:", currentCompDep)
-    if (currentCompDep.length) {
-      await this._analyticalCompDependence(currentCompDep, deps)
-    }
-    return deps.flat(Infinity).filter(Boolean)
-  }
 
   /**
    * 生成组件构成必要素的默认 json wxs, wxml, wxss 文件
    * */
   private async generateDefaultAppFiles() {
-    const appConfigJson = readLocalJsonFile(path.join(this.outputPath, 'app-config.json'))
-    const appConfigPages = (appConfigJson?.pages || [])
-      .map(cPath => cPath.endsWith('/') ? cPath.substring(0, cPath.length - 1) : cPath)
-    // const allPageGlobPathList = glob
-    //   .globSync(`${this.outputPath}/**/*{.html,.wxml}`)
-    //   .filter((str) => {
-    //     return ![
-    //       'page-frame.html'
-    //     ].includes(path.basename(str))
-    //   })
-
-    const allPage = await this._analyticalCompDependence(appConfigPages)
-
-    const allPageAndComp = allPage.filter(_path => !isPluginPath(_path))
-
-    for (let pagePath of allPageAndComp) {
-      // console.log("🚀 ~ DecompilationController ~ generateDefaultAppFiles ~ pagePath:", pagePath)
-      // /* json */
-      // console.log(replaceExt(pagePath, ".json"), pagePath)
-      let jsonPath = path.join(this.outputPath, replaceExt(pagePath, ".json"))
-      saveLocalFile(jsonPath, '{\n  "component":true\n}');
-      let jsName = replaceExt(pagePath, ".js")
-      let jsPath = path.join(this.outputPath, jsName)
-      saveLocalFile(jsPath, "Page({ data: {} })");
-      /* wxml */
-      let wxmlName = replaceExt(pagePath, ".wxml");
-      let wxmlPath = path.join(this.outputPath, wxmlName)
-      saveLocalFile(wxmlPath, `<text>${wxmlName}</text>`);
-    }
-    printLog(` \u25B6 生成页面和组件构成必要的默认文件成功. \n`, { isStart: true })
+    await DefaultFilesGeneratorUtils.generateDefaultAppFiles(this.outputPath);
   }
 
   /**
    * 缓存移除
    * */
   protected async removeCache() {
-    await sleep(500)
-    let cont = 0
-    const removeFileList = removeGameFileList.concat(removeAppFileList)
-    const allFile = glob.globSync(`${this.outputPath}/**/**{.js,.html,.json}`)
-    allFile.forEach(filepath => {
-      const fileName = path.basename(filepath).trim()
-      const extname = path.extname(filepath)
-      if (!fs.existsSync(filepath)) return
-      let _deleteLocalFile = () => {
-        cont++
-        deleteLocalFile(filepath, { catch: true, force: true })
-      }
-      if (removeFileList.includes(fileName)) {
-        _deleteLocalFile()
-      } else if (extname === '.html') {
-        const feature = 'var __setCssStartTime__ = Date.now()'
-        const data = readLocalFile(filepath)
-        if (data.includes(feature)) _deleteLocalFile()
-      } else if (filepath.endsWith('.appservice.js')) {
-        _deleteLocalFile()
-      } else if (filepath.endsWith('.webview.js')) {
-        _deleteLocalFile()
-      }
-    })
-
-    if (cont) {
-      printLog(`\n \u25B6 移除中间缓存产物成功, 总计 ${colors.yellow(cont)} 个`, { isStart: true })
-    }
+    await FileCleanerUtils.removeCache(this.outputPath);
   }
 
   /**
    * 收尾工作
    * */
   private async endingAllJob(): Promise<void> {
-    if (this.config.unpackOnly) return
+    // 在解包模式下，也尝试获取小程序信息
+    if (this.firstPackInfo) {
+      await this.tryGetAndUpdateAppInfo(this.firstPackInfo)
+    }
+    
+    if (this.config.unpackOnly) {
+      printLog(` ✅  ${colors.bold(colors.green('解包流程结束!'))}`, { isEnd: true })
+      return
+    }
+    
     await this.generateDefaultAppFiles()
     await this.generaProjectConfigFiles()
+    
     if (!isDev) {
       await this.removeCache()
     }
     printLog(` ✅  ${colors.bold(colors.green('编译流程结束!'))}`, { isEnd: true })
   }
 }
+
+export default DecompilationController;

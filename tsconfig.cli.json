@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "es2020",
+    "target": "es2020",
+    "outDir": "dist",
+    "importHelpers": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/decompilation-cli.ts"
+  ]
+}

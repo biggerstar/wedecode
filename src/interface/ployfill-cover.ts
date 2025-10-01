@@ -1,6 +1,6 @@
 import path from "node:path";
 import {glob} from "glob";
-import {PloyfillItem} from "@/typings";
+import {PloyfillItem} from "@/typings/index";
 
 export class PloyFillCover {
   public readonly allPloyFills: PloyfillItem[] = []

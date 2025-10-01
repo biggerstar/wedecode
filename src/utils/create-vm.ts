@@ -1,7 +1,7 @@
 import { VM, VMOptions } from "vm2";
 import { JSDOM } from "jsdom";
 import { deepmerge } from "@biggerstar/deepmerge";
-import { createWxFakeDom } from "./wx-dom";
+import { createWxFakeDom } from "@/utils/wx-dom";
 
 export function createVM(vmOptions: VMOptions = {}) {
   const domBaseHtml = `<!DOCTYPE html><html lang="en"><head><title>''</title></head><body></body></html>`
@@ -59,6 +59,6 @@ export function runVmCode(vm: VM, code: string) {
   try {
     vm.run(code)
   } catch (e) {
-    console.log(e.message)
+    console.error(e.message)
   }
 }

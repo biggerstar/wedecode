@@ -1,7 +1,7 @@
 import colors from "picocolors";
 import path from "node:path";
 import fs from "node:fs";
-import {PloyFillCover} from "./ployfill-cover";
+import {PloyFillCover} from "@/interface/ployfill-cover";
 import {createVM, runVmCode} from "@/utils/create-vm";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {
@@ -11,7 +11,7 @@ import {
   PackTypeMapping,
   PathResolveInfo,
   UnPackInfo
-} from "@/typings";
+} from "@/typings/index";
 import {commonDir, jsBeautify, printLog, removeVM2ExceptionLine, sleep} from "@/utils/common";
 
 export class BaseDecompilation {

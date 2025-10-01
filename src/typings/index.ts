@@ -152,5 +152,7 @@ export type DecompilationControllerState = {
   usePx: boolean,
   /** 仅解包 */
   unpackOnly: boolean,
+  /** 微信小程序 WXID */
+  wxid?: string | null,
 }
 export type ScanTableOptions =  { columns: any[]; rows: any[] }

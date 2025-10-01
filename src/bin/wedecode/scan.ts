@@ -1,11 +1,11 @@
-import { glob } from "glob";
-import { clearScreen } from "@/utils/common";
-import colors from "picocolors";
-import { PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo } from "@/typings";
-import axios, { AxiosRequestConfig } from "axios";
 import path from "node:path";
+import { clearScreen } from "@/utils/common";
+import { glob } from "glob";
+import { PackageInfoResult, SacnPackagesPathItem, ScanPackagesResultInfo } from "@/typings/index";
+import { WxAppInfoUtils } from "@/utils/wxapp-info";
+import colors from "picocolors";
 import prompts from "@/bin/wedecode/inquirer";
-import { AppMainPackageNames, globPathList, StreamPathDefaultEnum, YesOrNoEnum } from "@/bin/wedecode/enum";
+import { AppMainPackageNames, globPathList, YesOrNoEnum } from "@/bin/wedecode/enum";
 import { findWxAppIdForPath, findWxAppIdPath, getPathSplitList, stopCommander } from "@/bin/wedecode/common";
 import fs from "node:fs";
 import os from "node:os";
@@ -166,19 +166,5 @@ export async function startSacnPackagesProcess(manualScanPath?: string): Promise
  * 获取 appid 所属主体信息
  * */
 async function getWxAppInfo(appid: string): Promise<Partial<PackageInfoResult>> {
-  const options: AxiosRequestConfig = {
-    method: 'POST',
-    timeout: 6000,
-    url: 'https://kainy.cn/api/weapp/info/',
-    headers: { 'content-type': 'application/json' },
-    data: { appid: appid }
-  };
-  return axios
-    .request(options)
-    .then((res) => {
-      return Promise.resolve(res.data?.data || {});
-    })
-    .catch(() => {
-      return Promise.resolve({});
-    });
+  return WxAppInfoUtils.getWxAppInfo(appid);
 }

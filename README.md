@@ -17,7 +17,7 @@
 
 **`Windows` `MacOS` `Linux` 跨平台支持**
 
-### 支持功能
+## 支持功能
 
 SUPPORT
 
@@ -33,10 +33,27 @@ SUPPORT
 - [x] **其他类型文件还原 ( 媒体资源，wasm, workers...等 )**
 - [x] **所有代码美化输出**
 - [x] **小程序包扫描**
+- [x] **可视化UI操作**
 
 TODO
 
 - [ ] 小程序自动解密( 最近几年的电脑端包都不需要解密，以后看情况跟进 )
+
+
+## 方式一:  在线运行方式
+
+如果你不想安装 Wedecode 工具， 可以直接在 GitHub 上运行可视化版本
+
+> 运行方式: `本界面右上角 Use this template` -> `Open in a codespace`   
+
+
+之后等待 codespace 初始化完成就行了, 启动后会自动安装一些环境依赖，过程可能会比较久， 请耐心等待  
+
+等网页编辑器初始化完成后，打开终端执行  `npm run ui`  
+
+之后 `ctrl + 鼠标左键` 打开终端上显示的 `http://localhost:3000` 即可使用可视化操作页面
+
+## 方式二:  本地电脑安装
 
 ### 准备
 
@@ -55,6 +72,11 @@ nodejs 版本最好使用 v18+
 ```
 
 ### 运行
+
+命令行打开可视化操作页面
+```shell
+  wedecode ui
+```
 
 命令行直接输入 wedecode 即可运行, 全程自动引导
 
@@ -83,12 +105,15 @@ nodejs 版本最好使用 v18+
   git clone https://github.com/biggerstar/wedecode
   npm install  # 如果 npm 安装很慢， 可以使用右侧命令换国内的淘宝源  npm config set registry https://registry.npmmirror.com
   npm run start
+  # 或 
+  npm run ui
 ```
 
 ### 命令参数
 
 | 参数                  | 作用                         |
 |---------------------|----------------------------|
+| `ui`                | 启动本地可视化操作页面            |
 | `<packages...>`     | 包所在路径，可以是文件或者目录            |
 | `-o, --out  <path>` | 产物及输出路径， 未指定默认放到同级目录下的 OUTPUT |
 | `--open-dir`        | 结束编译后打开查看产物目录               |

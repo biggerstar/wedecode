@@ -77,7 +77,7 @@ export class GameDecompilation extends BaseDecompilation {
       try {
         runVmCode(vm, code)
       } catch (e) {
-        console.log(e.message)
+        console.error(e.message)
       }
     })
     // console.log(allJsList)

@@ -11,6 +11,10 @@
     "start": "vite build && node dist/wedecode.js",
     "dev": "vite build --watch",
     "build": "vite build",
+    "ui": "vite build && node dist/wedecode.js ui",
+    "workspace:init": "vite build && node dist/workspace/workspace-cli.js init",
+    "workspace:start": "vite build && node dist/workspace/workspace-cli.js start",
+    "workspace:dev": "vite build && node dist/workspace/workspace-cli.js start -p 3000",
     "test:cmd": "wedecode",
     "test:cmd:dev": "DEV=true  wedecode",
     "test:cmd:args": "DEV=true wedecode -o OUTPUT",
@@ -42,21 +46,29 @@
     "axios": "^1.7.4",
     "cheerio": "1.0.0-rc.12",
     "commander": "^12.1.0",
+    "cors": "^2.8.5",
     "cssbeautify": "^0.3.1",
     "escodegen": "^1.14.3",
     "esprima": "^4.0.1",
+    "express": "^5.1.0",
     "figlet": "^1.7.0",
     "glob": "^10.4.1",
     "inquirer": "^9.2.23",
     "js-beautify": "^1.15.1",
     "jsdom": "^24.1.0",
+    "multer": "^2.0.2",
     "open-file-explorer": "^1.0.2",
     "picocolors": "^1.0.1",
     "single-line-log": "^1.1.2",
     "update-check": "^1.5.4",
-    "vm2": "^3.9.19"
+    "vm2": "^3.9.19",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/ws": "^8.18.1",
     "@types/cssbeautify": "^0.3.5",
     "@types/escodegen": "^0.0.10",
     "@types/esprima": "^4.0.6",
@@ -69,7 +81,10 @@
     "@types/single-line-log": "^1.1.2",
     "lerna": "^8.1.7",
     "rollup-plugin-copy": "^3.5.0",
-    "vite": "^5.2.13"
+    "ttypescript": "^1.5.15",
+    "typescript-transform-paths": "^3.5.5",
+    "vite": "^5.2.13",
+    "vite-tsconfig-paths": "^5.1.4"
   },
   "keywords": [
     "wxapkg",
@@ -77,6 +92,7 @@
     "小程序",
     "反编译",
     "审计",
-    "安全"
+    "安全",
+    "可视化操作"
   ]
 }

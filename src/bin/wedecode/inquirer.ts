@@ -2,13 +2,13 @@ import inquirer from "inquirer";
 import path from "node:path";
 import colors from "picocolors";
 import {checkExistsWithFilePath, internetAvailable} from "@/bin/wedecode/common";
-import {PUBLIC_OUTPUT_PATH} from "@/constant";
+import {PUBLIC_OUTPUT_PATH} from "@/constant/index";
 import {CacheClearEnum, YesOrNoEnum, OperationModeEnum} from "@/bin/wedecode/enum";
 // @ts-ignore
 import {SelectTableTablePrompt} from "@biggerstar/inquirer-selectable-table";
 import {clearScreen, sleep} from "@/utils/common";
 import process from "node:process";
-import {ScanTableOptions} from "@/typings";
+import {ScanTableOptions} from "@/typings/index";
 
 inquirer.registerPrompt("table", SelectTableTablePrompt);
 process.stdout.setMaxListeners(200)

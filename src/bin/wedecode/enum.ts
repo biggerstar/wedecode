@@ -1,4 +1,4 @@
-import { PUBLIC_OUTPUT_PATH } from '@/constant';
+import { PUBLIC_OUTPUT_PATH } from '@/constant/index';
 import process from 'node:process';
 import os from 'node:os';
 

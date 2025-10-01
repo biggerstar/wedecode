@@ -1,13 +1,13 @@
-import {ScanPackagesResultInfo} from "@/typings";
+import {ScanPackagesResultInfo} from "@/typings/index";
 import {OperationModeEnum, StreamPathDefaultEnum} from "@/bin/wedecode/enum";
 import {startSacnPackagesProcess} from "@/bin/wedecode/scan";
 import {checkExistsWithFilePath, startCacheQuestionProcess} from "@/bin/wedecode/common";
-import path from "node:path";
-import openFileExplorer from "open-file-explorer";
+import colors from "picocolors";
+import DecompilationController from "@/decompilation-controller";
 import {sleep} from "@/utils/common";
 import prompts from "@/bin/wedecode/inquirer";
-import {DecompilationController} from "@/decompilation-controller";
-import colors from "picocolors";
+import path from "node:path";
+import openFileExplorer from "open-file-explorer";
 
 /**
  * 通过命令行交互获取输入和输出路径
@@ -63,6 +63,7 @@ export async function startMainCommanderProcess(args: string[], argMap: Record<s
   decompilationController.setState({
     usePx: argMap.px || false,
     unpackOnly: argMap.unpackOnly || false,
+    wxid: argMap.wxid || null,
   })
   await decompilationController.startDecompilerProcess()
   if (argMap.openDir) {

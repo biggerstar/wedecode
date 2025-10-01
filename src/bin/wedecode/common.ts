@@ -1,13 +1,15 @@
 import fs from "node:fs";
 import { isWxAppid, printLog, sleep } from "@/utils/common";
-import { glob } from "glob";
-import colors from "picocolors";
 import path from "node:path";
+import {glob} from "glob";
+import {
+  CacheClearEnum
+} from "@/bin/wedecode/enum";
+import prompts from "@/bin/wedecode/inquirer";
+import colors from "picocolors";
 import pkg from "../../../package.json";
 import checkForUpdate from "update-check";
 import figlet from "figlet";
-import { CacheClearEnum } from "@/bin/wedecode/enum";
-import prompts from "@/bin/wedecode/inquirer";
 import process from "node:process";
 import axios from "axios";
 

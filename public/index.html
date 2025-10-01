@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedecode - 微信小程序反编译工具</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 1000px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .upload-section {
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px 20px;
+            margin-bottom: 20px;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 1.1em;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .config-section {
+            text-align: left;
+        }
+
+        .config-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .config-group {
+            margin-bottom: 20px;
+        }
+
+        .config-label {
+            display: block;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .config-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 0.9em;
+            transition: border-color 0.3s ease;
+        }
+
+        .config-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .config-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .config-checkbox input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #667eea;
+        }
+
+        .config-checkbox label {
+            font-size: 0.9em;
+            color: #555;
+            cursor: pointer;
+        }
+
+        .config-description {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 5px;
+            margin-left: 28px;
+            line-height: 1.4;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #dee2e6;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-container {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            border: 1px solid #e0e6ff;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e6ff;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-details {
+            font-size: 0.9em;
+            color: #666;
+            text-align: left;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            border-radius: 10px;
+            margin-top: 20px;
+            max-height: 500px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-header {
+            color: #fff;
+            font-weight: bold;
+            padding: 20px 20px 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #333;
+            background: #1e1e1e;
+            border-radius: 10px 10px 0 0;
+            flex-shrink: 0;
+        }
+
+        .log-content {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #d4d4d4;
+            white-space: pre-wrap;
+            word-break: break-all;
+            padding: 0 20px 20px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .log-line {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+
+        .log-line.info {
+            color: #ffffff;
+        }
+
+        .log-line.success {
+            color: #ffffff;
+        }
+
+        .log-line.warning {
+            color: #ffb74d;
+        }
+
+        .log-line.error {
+            color: #e57373;
+        }
+
+        .log-line.debug {
+            color: #9e9e9e;
+        }
+
+        .footer {
+            margin-top: 30px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 3% auto;
+            padding: 0;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .modal-title {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .modal-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+        }
+
+        .modal-body {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .full-log-content {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #333;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            .buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-code"></i> Wedecode
+            </div>
+            <div class="subtitle">微信小程序反编译工具</div>
+        </div>
+
+        <div class="main-content">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <div class="upload-text" id="uploadText">拖拽 wxapkg 文件或包含 wxapkg 文件的文件夹到此处</div>
+                    <div class="upload-hint" id="uploadHint">或点击选择文件/文件夹上传</div>
+                    <input type="file" id="multiFileInput" class="file-input" accept=".wxapkg" multiple style="display: none;">
+                    <input type="file" id="folderInput" class="file-input" webkitdirectory directory allowdirs multiple style="display: none;">
+                </div>
+            </div>
+
+            <div class="config-section">
+                <div class="config-title">
+                    <i class="fas fa-cog"></i> 反编译配置
+                </div>
+
+                <!-- <div class="config-group">
+                    <label class="config-label" for="wxidInput">微信小程序 WXID</label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="text" id="wxidInput" class="config-input" placeholder="输入小程序的 WXID (可选)" style="flex: 1;">
+                        <div class="config-checkbox" style="margin: 0; white-space: nowrap;">
+                            <input type="checkbox" id="skipWxid">
+                            <label for="skipWxid">不使用 WXID</label>
+                        </div>
+                    </div>
+                </div> -->
+
+                <div class="config-group">
+                    <div class="config-checkbox" style="margin-bottom: 10px;">
+                        <input type="checkbox" id="usePx">
+                        <label for="usePx">使用 px 单位 (--px)</label>
+                        <span style="font-size: 0.8em; color: #888; margin-left: 15px;">默认 rpx，勾选后使用 px</span>
+                    </div>
+                    
+                    <div class="config-checkbox" style="margin-bottom: 10px;">
+                        <input type="checkbox" id="unpackOnly">
+                        <label for="unpackOnly">仅解包不反编译 (--unpack-only)</label>
+                        <span style="font-size: 0.8em; color: #888; margin-left: 15px;">只解压文件，不反编译代码</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="btn btn-primary" id="uploadBtn" disabled>
+                <i class="fas fa-play"></i>
+                开始反编译
+            </button>
+            <button class="btn btn-secondary" id="folderCompileBtn" disabled style="display: none;">
+                <i class="fas fa-folder-open"></i>
+                文件夹编译
+            </button>
+            <button class="btn btn-secondary" id="downloadBtn" disabled>
+                <i class="fas fa-download"></i>
+                下载结果
+            </button>
+            <button class="btn btn-secondary" id="viewFullLogBtn" disabled>
+                <i class="fas fa-file-alt"></i>
+                查看完整日志
+            </button>
+        </div>
+
+        <div id="status" class="status hidden"></div>
+        
+        <div id="progressContainer" class="progress-container hidden">
+            <div class="progress-header">
+                <span id="progressText">上传进度</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div id="progressDetails" class="progress-details"></div>
+        </div>
+
+        <div class="log-container">
+            <div class="log-header">
+                <i class="fas fa-terminal"></i>
+                反编译日志
+                <button class="btn btn-secondary" id="clearLogBtn" style="margin-left: auto; padding: 5px 10px; font-size: 0.8em;">
+                    <i class="fas fa-trash"></i>
+                    清空
+                </button>
+            </div>
+            <div class="log-content" id="logContent">
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>支持微信小程序和小游戏反编译 | 完美还原源代码结构</p>
+            <p style="margin-top: 10px; font-size: 0.8em;">
+                支持功能：JS/WXML/WXSS/WXS/JSON 代码还原 | 分包代码还原 | 媒体资源还原
+            </p>
+        </div>
+    </div>
+
+    <!-- 完整日志模态框 -->
+    <div id="logModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fas fa-file-alt"></i>
+                    完整反编译日志
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" id="copyLogBtn" style="margin-right: 10px; padding: 5px 10px; font-size: 0.8em;">
+                        <i class="fas fa-copy"></i>
+                        复制日志
+                    </button>
+                    <span class="close" id="closeModal">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="full-log-content" id="fullLogContent">
+                    暂无日志内容
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文件夹编译模态框 -->
+    <div id="folderCompileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fas fa-folder-open"></i>
+                    文件夹编译设置
+                </div>
+                <div class="modal-actions">
+                    <span class="close" id="closeFolderModal">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <label for="folderPath" style="display: block; margin-bottom: 8px; font-weight: bold;">
+                        <i class="fas fa-folder"></i> 文件夹路径：
+                    </label>
+                    <input type="text" id="folderPath" placeholder="请输入包含.wxapkg文件的文件夹路径" 
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                    <div style="margin-top: 8px; font-size: 12px; color: #666;">
+                        例如：/Users/username/Desktop/wxapkg_files
+                    </div>
+                </div>
+                
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">
+                        <i class="fas fa-cog"></i> 编译选项：
+                    </label>
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <input type="checkbox" id="folderUsePx" style="margin-right: 8px;">
+                            <span>使用像素单位 (--px)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <input type="checkbox" id="folderUnpackOnly" style="margin-right: 8px;">
+                            <span>仅解包模式 (--unpack-only)</span>
+                        </label>
+                    </div>
+
+                </div>
+                
+                <div style="text-align: center;">
+                    <button class="btn btn-primary" id="startFolderCompile" style="margin-right: 10px;">
+                        <i class="fas fa-play"></i>
+                        开始编译
+                    </button>
+                    <button class="btn btn-secondary" id="cancelFolderCompile">
+                        <i class="fas fa-times"></i>
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

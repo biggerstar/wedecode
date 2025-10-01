@@ -102,7 +102,11 @@ export function limitPush(arr: any[], data: any, limit = 10) {
 }
 
 const openStreamLog = false
-const excludesLogMatch = isDev
+// 检查是否在子进程中运行（通过环境变量或进程参数判断）
+const isChildProcess = process.argv.some(arg => arg.includes('decompilation-cli.js') || arg.includes('decompilation-controller.js')) || process.env.WEDECODE_CHILD_PROCESS === 'true'
+
+// 在子进程中不过滤任何日志，确保所有输出都能被父进程捕获
+const excludesLogMatch = isDev && !isChildProcess
   ? [
     'Completed'
   ]
@@ -120,10 +124,13 @@ export function printLog(log: string, opt: {
   interceptor?: (log: string) => any
 } = {}) {
   if (excludesLogMatch.some(item => log.includes(item))) return;
-  if (!openStreamLog) {
+  
+  // 在子进程中，直接使用 console.log 确保输出能被父进程捕获
+  if (isChildProcess || !openStreamLog) {
     console.log(log)
     return;
   }
+  
   if (!log || !log.trim()) return
   if (opt.interceptor) printLog['interceptor'] = opt.interceptor
   if (opt.space1) printLog['space1'] = opt.space1
