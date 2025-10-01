@@ -87,9 +87,15 @@ export class WorkspaceServer {
     this.app.use(cors());
     this.app.use(express.json({ limit: '2gb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '2gb' }));
-    this.app.use('/static', express.static(path.join(__dirname, '../../public')));
+    
+    // 计算 public 目录的正确路径
+    // 在开发环境中：__dirname 是 src/workspace，public 在 ../../public
+    // 在 npm 包中：__dirname 是 dist/workspace，public 在 ../../public
+    const publicPath = path.join(__dirname, '../../public');
+    
+    this.app.use('/static', express.static(publicPath));
     // 为根路径提供静态文件服务
-    this.app.use(express.static(path.join(__dirname, '../../public')));
+    this.app.use(express.static(publicPath));
   }
 
   private setupRoutes(): void {
@@ -161,7 +167,30 @@ export class WorkspaceServer {
 
     // 提供前端页面
     this.app.get('/', (req, res) => {
-      res.sendFile(path.join(__dirname, '../../public/index.html'));
+      const indexPath = path.join(__dirname, '../../public/index.html');
+      
+      // 检查文件是否存在
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        // 如果文件不存在，返回一个简单的 HTML 页面
+        res.status(404).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Wedecode - 文件未找到</title>
+            <meta charset="UTF-8">
+          </head>
+          <body>
+            <h1>Wedecode 微信小程序反编译工具</h1>
+            <p>抱歉，前端文件未找到。</p>
+            <p>请确保 public 目录已正确包含在安装包中。</p>
+            <p>当前查找路径: ${indexPath}</p>
+            <p>API 服务正常运行在: <a href="/api/health">/api/health</a></p>
+          </body>
+          </html>
+        `);
+      }
     });
   }
 
