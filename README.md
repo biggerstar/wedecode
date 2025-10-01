@@ -42,6 +42,8 @@ TODO
 
 ## 方式一:  在线运行方式
 
+![wedecode-ui.png](images/wedecode-ui.png)
+
 如果你不想安装 Wedecode 工具， 可以直接在 GitHub 上运行可视化版本
 
 > 运行方式: `本界面右上角 Use this template` -> `Open in a codespace`   
