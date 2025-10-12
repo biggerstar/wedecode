@@ -73,9 +73,9 @@ nodejs 版本最好使用 v18+
   sudo npm i wedecode -g
 ```
 
-### 本地运行
+### 本地运行(四种启动方式)
 
-命令行打开可视化操作页面
+命令行打开网页可视化操作页面
 ```shell
   wedecode ui
 ```
@@ -85,6 +85,10 @@ nodejs 版本最好使用 v18+
 ```shell
   wedecode
 ```
+
+![wedecode.png](images/wedecode.png)
+
+![wedecode-scan.png](images/wedecode-scan.png)
 
 命令行直接指定参数
 
@@ -105,6 +109,7 @@ nodejs 版本最好使用 v18+
 
 ```shell
   git clone https://github.com/biggerstar/wedecode
+  cd wedecode
   npm install  # 如果 npm 安装很慢， 可以使用右侧命令换国内的淘宝源  npm config set registry https://registry.npmmirror.com
   npm run start
   # 或 
