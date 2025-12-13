@@ -1,10 +1,11 @@
 import colors from "picocolors";
 import process from "node:process";
 import fs from "node:fs";
-import {findCommonRoot, getPathResolveInfo, printLog} from "@/utils/common";
+import {findCommonRoot, getPathResolveInfo, isWxAppid, printLog} from "@/utils/common";
 import {readLocalFile, saveLocalFile} from "@/utils/fs-process";
 import {MiniAppType, MiniPackType, UnPackInfo} from "@/typings";
 import path from "node:path";
+import {decryptWxapkg, needsDecryption} from "@/utils/decrypt-wxapkg";
 
 /**
  * 用于解包
@@ -55,11 +56,40 @@ export class UnpackWxapkg {
   }
 
   /**
+   * 从路径中提取 wxid
+   */
+  private static extractWxid(filePath: string): string | null {
+    const parts = filePath.replace(/\\/g, '/').split('/');
+    for (const part of parts) {
+      if (isWxAppid(part)) {
+        return part;
+      }
+    }
+    return null;
+  }
+
+  /**
    * 解析并保存该包中的所有文件
    * 返回获取该包各种信息 和 路径的操作对象
    * */
   public static async unpackWxapkg(inputPath: string, outputPath: string): Promise<UnPackInfo> {
-    const __APP_BUF__ = fs.readFileSync(inputPath)
+    let __APP_BUF__ = fs.readFileSync(inputPath)
+
+    // 检测是否需要解密
+    if (needsDecryption(__APP_BUF__)) {
+      const wxid = UnpackWxapkg.extractWxid(inputPath);
+      if (wxid) {
+        printLog(`\n \u25B6 检测到加密包，正在解密... (wxid: ${colors.blue(wxid)})`, {isStart: true});
+        __APP_BUF__ = decryptWxapkg(wxid, __APP_BUF__);
+      } else {
+        console.log(` \n\u274C ${colors.red(
+          '检测到加密包，但无法从路径中提取 wxid\n' +
+          '请确保包路径中包含小程序 appid (如 wx1234567890abcdef)')}`
+        );
+        process.exit(0);
+      }
+    }
+
     const fileList = []
     fileList.splice(0, fileList.length, ...UnpackWxapkg.genFileList(__APP_BUF__))
     const pathInfo = getPathResolveInfo(outputPath) // 这个后面在解压完包的时候会进行分包路径重置,并永远指向分包
