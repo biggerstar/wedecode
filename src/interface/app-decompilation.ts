@@ -149,11 +149,11 @@ export class AppDecompilation extends BaseDecompilation {
         result.pagePath = info.pagePath.replace('.html', '')
         if (info.iconData) {
           const found = allFileBufferInfo.find(item => item.data === info.iconData)
-          if (found) result.iconPath = path.relative(this.pathInfo.outputPath, found.path)
+          if (found) result.iconPath = path.relative(this.pathInfo.outputPath, found.path).split(path.sep).join('/')
         }
         if (info.selectedIconData) {
           const found = allFileBufferInfo.find(item => item.data === info.selectedIconData)
-          if (found) result.selectedIconPath = path.relative(this.pathInfo.outputPath, found.path)
+          if (found) result.selectedIconPath = path.relative(this.pathInfo.outputPath, found.path).split(path.sep).join('/')
         }
         return result
       })
@@ -201,6 +201,7 @@ export class AppDecompilation extends BaseDecompilation {
     for (const filePath in __wxAppCode__) {
       if (path.extname(filePath) !== '.json') continue
       let tempFilePath = filePath
+      let dir = path.dirname(filePath)
       const pageJson: Record<any, any> = __wxAppCode__[filePath]
       const { componentPlaceholder, usingComponents } = pageJson
       if (componentPlaceholder) { // 处理异步分包加载占位符
@@ -212,7 +213,10 @@ export class AppDecompilation extends BaseDecompilation {
           // console.log("🚀 ~ decompileAllJSON ~ usingComponents[key]:", usingComponents[key])
           usingComponents[key] = usingComponents[key].substring(3)
         }
-        usingComponents[key] = path.join(path.dirname(filePath), usingComponents[key])
+        
+        if (!isPluginPath(usingComponents[key])) {
+          usingComponents[key] = path.relative(dir, path.join(dir, usingComponents[key])).split(path.sep).join('/')
+        }
       }
 
       let realJsonConfigString = JSON.stringify(pageJson, null, 2)

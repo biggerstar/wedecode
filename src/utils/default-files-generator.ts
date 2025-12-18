@@ -25,14 +25,21 @@ export class DefaultFilesGeneratorUtils {
     for (const pagePath of analysisList) {
       if (allDeps.includes(pagePath)) continue;
       allDeps.push(pagePath);
-      
+
+      const pageDirPath = path.dirname(pagePath)
       const pageJsonPath = path.join(outputPath, replaceExt(pagePath, '.json'));
       
       if (fs.existsSync(pageJsonPath)) {
         try {
           const pageConfig = readLocalJsonFile(pageJsonPath);
           const usingComponents = pageConfig?.usingComponents || {};
-          const componentPaths = Object.values(usingComponents) as string[];
+          const componentPaths = (Object.values(usingComponents) as string[])
+            .map(op => {
+              if (isPluginPath(op)) {
+                return op
+              }
+              return path.join(pageDirPath, op).split(path.sep).join('/')
+            })
           
           if (componentPaths.length > 0) {
             const newDeps = await DefaultFilesGeneratorUtils.analyzeComponentDependencies(
