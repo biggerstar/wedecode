@@ -2,6 +2,7 @@ import path from 'node:path';
 import { deepmerge } from '@biggerstar/deepmerge';
 import { readLocalFile, saveLocalFile } from '@/utils/fs-process';
 import { isDev } from '@/bin/wedecode/enum';
+import { printLog } from './common';
 
 /**
  * 项目配置生成工具类
@@ -45,5 +46,6 @@ export class ProjectConfigUtils {
     }
     
     saveLocalFile(projectPrivateConfigJsonPath, JSON.stringify(finallyConfig, null, 2), { force: true });
+    printLog(` ▶ 生成项目配置文件成功. \n`, { isStart: true });
   }
 }
