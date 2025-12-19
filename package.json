@@ -1,6 +1,6 @@
 {
   "name": "wedecode",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "type": "module",
   "description": "微信小程序源代码还原工具, 线上代码安全审计",
   "bin": {
@@ -22,7 +22,7 @@
     "unlink": "pnpm unlink",
     "release:npm": "vite build && npm publish",
     "release:git": "vite build && git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
-    "dev:unpack:dir": "DEV=true wedecode --clear -o OUTPUT pkg/fen-cao",
+    "dev:unpack:dir": "DEV=true wedecode --clear -o OUTPUT pkg/wx1736dcbd36f4c055",
     "dev:unpack:subPack": "DEV=true wedecode --clear -o OUTPUT pkg/mt/_mobike_.wxapkg",
     "dev:unpack:game-dir": "DEV=true wedecode --clear -o OUTPUT-GAME pkg/weixin-dushu",
     "preview:unpack": "wedecode -ow true -o OUTPUT pkg/issues8-sxd"
@@ -41,6 +41,9 @@
     "decryption-tool"
   ],
   "homepage": "https://github.com/biggerstar/wedecode#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
   "dependencies": {
     "@biggerstar/deepmerge": "^1.0.3",
     "@biggerstar/inquirer-selectable-table": "^1.0.12",
@@ -67,19 +70,19 @@
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
-    "@types/multer": "^2.0.0",
-    "@types/ws": "^8.18.1",
     "@types/cssbeautify": "^0.3.5",
     "@types/escodegen": "^0.0.10",
     "@types/esprima": "^4.0.6",
+    "@types/express": "^5.0.3",
     "@types/figlet": "^1.5.8",
     "@types/inquirer": "^9.0.7",
     "@types/js-beautify": "^1.14.3",
     "@types/jsdom": "^21.1.7",
+    "@types/multer": "^2.0.0",
     "@types/node": "^20.14.2",
     "@types/open-file-explorer": "^1.0.2",
     "@types/single-line-log": "^1.1.2",
+    "@types/ws": "^8.18.1",
     "lerna": "^8.1.7",
     "rollup-plugin-copy": "^3.5.0",
     "ttypescript": "^1.5.15",
