@@ -1,0 +1,92 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 检查依赖和 overrides 中是否包含 link 依赖..."
+
+# 检查 package.json 中的 dependencies 和 devDependencies
+check_package_json() {
+  if [ ! -f "package.json" ]; then
+    return 0
+  fi
+  
+  if command -v node >/dev/null 2>&1; then
+    # 使用 Node.js 检查 package.json
+    node -e "
+      const fs = require('fs');
+      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+      const linkDeps = Object.entries(deps)
+        .filter(([_, v]) => typeof v === 'string' && (v.startsWith('link:') || v.startsWith('file:')))
+        .map(([k, v]) => \`\${k}: \${v}\`);
+      
+      if (linkDeps.length > 0) {
+        console.error('❌ 错误：在 package.json 的 dependencies 或 devDependencies 中发现 link 依赖：');
+        linkDeps.forEach(dep => console.error('   -', dep));
+        process.exit(1);
+      }
+    " 2>&1
+    
+    if [ $? -ne 0 ]; then
+      return 1
+    fi
+  else
+    # 如果没有 Node.js，使用 grep 检查
+    if grep -E '"(link:|file:)' package.json >/dev/null 2>&1; then
+      echo "❌ 错误：在 package.json 中发现 link 或 file 依赖"
+      grep -E '"(link:|file:)' package.json | sed 's/^/   /'
+      return 1
+    fi
+  fi
+  
+  return 0
+}
+
+# 检查 pnpm-lock.yaml 中的 overrides
+check_pnpm_lock() {
+  if [ ! -f "pnpm-lock.yaml" ]; then
+    return 0
+  fi
+  
+  # 检查 overrides 部分是否包含 link
+  # 只检查 overrides 部分，因为这是本地开发配置，不应该提交
+  if grep -q "^overrides:" pnpm-lock.yaml; then
+    # 获取 overrides 部分的内容（从 overrides: 到下一个顶级键之前）
+    local override_section=$(awk '/^overrides:/{flag=1} flag && /^[a-z]/{flag=0} flag' pnpm-lock.yaml)
+    
+    if echo "$override_section" | grep -E "link:" >/dev/null 2>&1; then
+      echo "❌ 错误：在 pnpm-lock.yaml 的 overrides 中发现 link 依赖："
+      echo "$override_section" | grep -E "link:" | sed 's/^/   /'
+      return 1
+    fi
+  fi
+  
+  return 0
+}
+
+# 执行检查
+error_count=0
+
+if ! check_package_json; then
+  error_count=$((error_count + 1))
+fi
+
+if ! check_pnpm_lock; then
+  error_count=$((error_count + 1))
+fi
+
+# 如果有错误，阻止提交
+if [ $error_count -gt 0 ]; then
+  echo ""
+  echo "🚫 提交被阻止：检测到 link 依赖，这些依赖不应该提交到仓库。"
+  echo ""
+  echo "💡 解决方案："
+  echo "   1. 从 package.json 中移除 link 依赖"
+  echo "   2. 从 pnpm-lock.yaml 的 overrides 中移除 link 配置"
+  echo "   3. 运行 'pnpm install' 重新生成 pnpm-lock.yaml"
+  echo ""
+  exit 1
+fi
+
+echo "✅ 检查通过：未发现 link 依赖"
+exit 0
+
