@@ -59,7 +59,8 @@ export class UnpackWxapkg {
    * 从路径中提取 wxid
    */
   private static extractWxid(filePath: string): string | null {
-    const parts = filePath.replace(/\\/g, '/').split('/');
+    const normalizedPath = path.normalize(filePath);
+    const parts = normalizedPath.split(path.sep);
     for (const part of parts) {
       if (isWxAppid(part)) {
         return part;
