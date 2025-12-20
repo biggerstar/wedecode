@@ -21,12 +21,14 @@
     "link": "vite build && pnpm link --dir= ./",
     "unlink": "pnpm unlink",
     "release:npm": "vite build && npm publish",
-    "release:git": "vite build && git commit -am v$npm_package_version && git tag $npm_package_version && git push --tags ",
+    "release:git": "vite build && git commit -am \"chore: release v$npm_package_version\" && git tag $npm_package_version && git push --tags ",
     "dev:unpack:dir": "DEV=true wedecode --clear -o OUTPUT pkg/wx1736dcbd36f4c055",
     "dev:unpack:subPack": "DEV=true wedecode --clear -o OUTPUT pkg/mt/_mobike_.wxapkg",
     "dev:unpack:game-dir": "DEV=true wedecode --clear -o OUTPUT-GAME pkg/weixin-dushu",
     "preview:unpack": "wedecode -ow true -o OUTPUT pkg/issues8-sxd",
-    "prepare": "husky"
+    "prepare": "husky",
+    "commitlint": "commitlint --edit",
+    "commitlint:last": "commitlint --from HEAD~1 --to HEAD --verbose"
   },
   "repository": {
     "type": "git",
@@ -84,6 +86,8 @@
     "@types/open-file-explorer": "^1.0.2",
     "@types/single-line-log": "^1.1.2",
     "@types/ws": "^8.18.1",
+    "@commitlint/cli": "^19.4.0",
+    "@commitlint/config-conventional": "^19.4.0",
     "husky": "^9.0.11",
     "lerna": "^8.1.7",
     "rollup-plugin-copy": "^3.5.0",

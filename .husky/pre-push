@@ -1,9 +1,6 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
-echo "🔍 检查依赖和 overrides 中是否包含 link 依赖..."
-
-# 检查 package.json 中的 dependencies 和 devDependencies
+# 静默检查 package.json 中的 dependencies 和 devDependencies
 check_package_json() {
   if [ ! -f "package.json" ]; then
     return 0
@@ -11,7 +8,7 @@ check_package_json() {
   
   if command -v node >/dev/null 2>&1; then
     # 使用 Node.js 检查 package.json
-    node -e "
+    node_output=$(node -e "
       const fs = require('fs');
       const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
       const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
@@ -24,9 +21,18 @@ check_package_json() {
         linkDeps.forEach(dep => console.error('   -', dep));
         process.exit(1);
       }
-    " 2>&1
+    " 2>&1)
+    node_exit_code=$?
     
-    if [ $? -ne 0 ]; then
+    # 过滤掉 zsh 提示信息并输出有效内容
+    filtered_output=$(echo "$node_output" | grep -vE "^@zsh|^\([0-9]+-[0-9]+\)" || true)
+    
+    # 如果有有效输出，显示它
+    if [ -n "$filtered_output" ]; then
+      echo "$filtered_output" >&2
+    fi
+    
+    if [ $node_exit_code -ne 0 ]; then
       return 1
     fi
   else
@@ -76,17 +82,14 @@ fi
 
 # 如果有错误，阻止提交
 if [ $error_count -gt 0 ]; then
-  echo ""
   echo "🚫 提交被阻止：检测到 link 依赖，这些依赖不应该提交到仓库。"
   echo ""
   echo "💡 解决方案："
   echo "   1. 从 package.json 中移除 link 依赖"
   echo "   2. 从 pnpm-lock.yaml 的 overrides 中移除 link 配置"
   echo "   3. 运行 'pnpm install' 重新生成 pnpm-lock.yaml"
-  echo ""
   exit 1
 fi
 
-echo "✅ 检查通过：未发现 link 依赖"
 exit 0
 

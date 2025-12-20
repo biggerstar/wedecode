@@ -1,0 +1,42 @@
+#!/usr/bin/env sh
+
+# 获取项目根目录（从 .husky 目录向上两级）
+PROJECT_ROOT="$(cd "$(dirname -- "$0")/../.." && pwd)"
+
+# 检查 commitlint 是否已安装
+if [ ! -f "$PROJECT_ROOT/node_modules/.bin/commitlint" ]; then
+  exit 0
+fi
+
+# 验证提交信息格式
+cd "$PROJECT_ROOT" && "$PROJECT_ROOT/node_modules/.bin/commitlint" --edit "$1" 2>&1
+
+exit_code=$?
+
+if [ $exit_code -ne 0 ]; then
+  echo ""
+  echo "❌ 提交信息格式不正确！"
+  echo ""
+  echo "📝 提交信息格式应为: <type>(<scope>): <subject>"
+  echo ""
+  echo "类型 (type):"
+  echo "  feat     - 新功能"
+  echo "  fix      - 修复bug"
+  echo "  docs     - 文档变更"
+  echo "  style    - 代码格式（不影响代码运行的变动）"
+  echo "  refactor - 重构"
+  echo "  perf     - 性能优化"
+  echo "  test     - 增加测试"
+  echo "  chore    - 构建过程或辅助工具的变动"
+  echo "  revert   - 回滚"
+  echo "  build    - 构建系统或外部依赖的更改"
+  echo "  ci       - CI配置文件和脚本的更改"
+  echo ""
+  echo "示例:"
+  echo "  feat: 添加新的解密功能"
+  echo "  fix(utils): 修复文件读取错误"
+  echo "  docs: 更新 README 文档"
+  echo ""
+  exit $exit_code
+fi
+
