@@ -37,6 +37,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
             
+      - name: Extract version from tag
+        id: get_version
+        shell: bash
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          # 移除 'v' 前缀（如果存在）
+          VERSION=${TAG_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG_NAME, Version: $VERSION"
+          
+      - name: Update package.json version
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${{ steps.get_version.outputs.version }}';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          echo "✅ package.json 版本已更新为: ${{ steps.get_version.outputs.version }}"
+          
       - name: Install dependencies
         run: |
           # 尝试使用 frozen-lockfile，如果失败则提供更详细的错误信息
@@ -50,24 +70,10 @@ jobs:
       - name: Build project
         run: pnpm run build
         
-      - name: Extract version from tag
-        id: get_version
-        shell: bash
-        run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          # 移除 'v' 前缀（如果存在）
-          VERSION=${TAG_NAME#v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Tag: $TAG_NAME, Version: $VERSION"
-          
-      - name: Update package.json version
-        run: |
-          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version
-          
       - name: Verify package.json version
         run: |
-          echo "Package version: $(node -p "require('./package.json').version")"
-          echo "Tag version: ${{ steps.get_version.outputs.version }}"
+          echo "最终 package.json 版本: $(node -p "require('./package.json').version")"
+          echo "Tag 版本: ${{ steps.get_version.outputs.version }}"
           
       - name: Configure npm registry for pnpm
         run: |
