@@ -158,6 +158,14 @@ nodejs 版本最好使用 v18+
    A: 这可能是缺失分包，你需要把分包放在一起编译， 你可以在 app.config.json 或者 app.json 文件中查看你依赖的分包信息,    
    在编译产物中出现默认模板是因为小程序会检查依赖，为了保证在缺失某些分包的情况下正常运行而生成的默认模板
 
+## 贡献者
+
+感谢所有为这个项目做出贡献的开发者！
+
+<a href="https://github.com/biggerstar/wedecode/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=biggerstar/wedecode" alt="贡献者列表" />
+</a>
+
 ### 免责声明
 
 该工具仅限用于: 线上代码安全审计以便快速发现漏洞, 学习反编译原理,  
