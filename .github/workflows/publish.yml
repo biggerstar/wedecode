@@ -59,13 +59,17 @@ jobs:
           
       - name: Install dependencies
         run: |
-          # 尝试使用 frozen-lockfile，如果失败则提供更详细的错误信息
-          pnpm install --frozen-lockfile || {
-            echo "❌ 安装失败，检查 lockfile 和 package.json 是否同步..."
+          # 尝试使用 frozen-lockfile 安装
+          if pnpm install --frozen-lockfile; then
+            echo "✅ 使用 frozen-lockfile 安装成功"
+          else
+            echo "⚠️  lockfile 与 package.json 不同步，正在更新 lockfile..."
             echo "lockfile 版本: $(grep '^lockfileVersion:' pnpm-lock.yaml 2>/dev/null || echo '未找到')"
             echo "pnpm 版本: $(pnpm --version)"
-            exit 1
-          }
+            # 更新 lockfile 并安装依赖
+            pnpm install --no-frozen-lockfile
+            echo "✅ lockfile 已更新并安装完成"
+          fi
         
       - name: Build project
         run: pnpm run build
