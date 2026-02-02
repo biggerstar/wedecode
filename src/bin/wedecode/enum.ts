@@ -7,6 +7,8 @@ const macGlob: string[] = [
   '/Users/*/Library/Containers/*/Data/.wxapplet/packages',
   // 版本4.0+
   '/Users/*/Library/Containers/*/Data/Documents/app_data/radium/Applet/packages',
+  // 版本4.1.7+ (Arm架构)
+  '/Users/*/Library/Containers/*/Data/Documents/app_data/radium/users/*/applet/packages',
 ];
 
 const winGlob: string[] = [
