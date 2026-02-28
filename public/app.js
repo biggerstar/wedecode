@@ -27,6 +27,7 @@ class WedecodeApp {
         this.clearLogBtn = document.getElementById('clearLogBtn');
         
         // 配置选项元素
+        this.wxidInput = document.getElementById('wxidInput');
         this.usePx = document.getElementById('usePx');
         this.unpackOnly = document.getElementById('unpackOnly');
         
@@ -327,10 +328,12 @@ class WedecodeApp {
 
     getDecompileOptions() {
         // 返回对象格式，匹配后端期望的格式
+        const wxidValue = this.wxidInput ? this.wxidInput.value.trim() : '';
         const options = {
             clear: true, // 固定设置：清空旧产物为 true
             px: this.usePx.checked,
-            unpackOnly: this.unpackOnly.checked
+            unpackOnly: this.unpackOnly.checked,
+            wxid: wxidValue || null
         };
         
         // 控制台打印配置参数
@@ -339,6 +342,7 @@ class WedecodeApp {
         console.log('  - 清空旧产物 (clear):', options.clear);
         console.log('  - 使用px单位 (px):', options.px);
         console.log('  - 仅解包模式 (unpackOnly):', options.unpackOnly);
+        console.log('  - WXID:', options.wxid || '(未设置)');
         
         return options;
     }
