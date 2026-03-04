@@ -73,12 +73,12 @@ export class UnpackWxapkg {
    * 解析并保存该包中的所有文件
    * 返回获取该包各种信息 和 路径的操作对象
    * */
-  public static async unpackWxapkg(inputPath: string, outputPath: string): Promise<UnPackInfo> {
+  public static async unpackWxapkg(inputPath: string, outputPath: string, externalWxid?: string | null): Promise<UnPackInfo> {
     let __APP_BUF__ = fs.readFileSync(inputPath)
 
     // 检测是否需要解密
     if (needsDecryption(__APP_BUF__)) {
-      const wxid = UnpackWxapkg.extractWxid(inputPath);
+      const wxid = externalWxid || UnpackWxapkg.extractWxid(inputPath);
       if (wxid) {
         printLog(`\n \u25B6 检测到加密包，正在解密... (wxid: ${colors.blue(wxid)})`, {isStart: true});
         __APP_BUF__ = decryptWxapkg(wxid, __APP_BUF__);

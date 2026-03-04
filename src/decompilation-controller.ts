@@ -49,7 +49,7 @@ class DecompilationController {
    * 单包反编译
    * */
   private async singlePackMode(wxapkgPath: string, outputPath: string): Promise<void> {
-    const packInfo = await UnpackWxapkg.unpackWxapkg(wxapkgPath, outputPath)
+    const packInfo = await UnpackWxapkg.unpackWxapkg(wxapkgPath, outputPath, this.config.wxid)
     
     // 保存第一个包的信息，用于后续获取小程序信息
     if (!this.firstPackInfo) {
