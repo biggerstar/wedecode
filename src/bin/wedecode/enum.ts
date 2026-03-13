@@ -18,6 +18,8 @@ const winGlob: string[] = [
   // 版本4.0+
   'C:/Users/*/Documents/xwechat_files',
   'C:/Users/*/AppData/Roaming/*/xwechat/radium/Applet/packages',
+  // 版本4.1.7+
+  'C:/Users/*/AppData/Roaming/*/xwechat/radium/users',
   // 安装到其他盘
   'D:/WeChat Files/Applet',
   'E:/WeChat Files/Applet',
