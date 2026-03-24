@@ -109,6 +109,12 @@ async function sacnPackages(manualScanPath: string = ''): Promise<SacnPackagesPa
  * */
 export async function startSacnPackagesProcess(manualScanPath?: string): Promise<ScanPackagesResultInfo> {
   const foundPackageList: SacnPackagesPathItem[] = await sacnPackages(manualScanPath)
+  const sortedPackageList = [...foundPackageList]
+    .map(item => ({
+      item,
+      statInfo: fs.statSync(item.storagePath)
+    }))
+    .sort((a, b) => b.statInfo.mtimeMs - a.statInfo.mtimeMs)
   // console.log(foundPackageList)
   const columns = [
     {
@@ -124,9 +130,8 @@ export async function startSacnPackagesProcess(manualScanPath?: string): Promise
       value: "description"
     },
   ]
-  const rowsPromiseList = foundPackageList
-    .map(async (item: SacnPackagesPathItem) => {
-      const statInfo = fs.statSync(item.storagePath)
+  const rowsPromiseList = sortedPackageList
+    .map(async ({ item, statInfo }) => {
       const date = new Date(statInfo.mtime)
       const dateString = `${date.getMonth() + 1}/${date.getDate()} ${date.toLocaleTimeString()}`
       if (!item.isAppId) return {
@@ -156,7 +161,7 @@ export async function startSacnPackagesProcess(manualScanPath?: string): Promise
   })
   const foundIndex = rows
     .findIndex(item => item.appName === result.packInfo?.appName)
-  const packInfo = { ...rows[foundIndex], ...foundPackageList[foundIndex] }
+  const packInfo = { ...rows[foundIndex], ...sortedPackageList[foundIndex].item }
   console.log(`$ 选择了 ${packInfo.appName}( ${packInfo.appId} )`)
 
   return packInfo
