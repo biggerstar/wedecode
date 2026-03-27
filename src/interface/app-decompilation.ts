@@ -27,6 +27,7 @@ import { JSDOM } from "jsdom";
  * */
 export class AppDecompilation extends BaseDecompilation {
   private codeInfo: AppCodeInfo
+  private runtimeCodeCache: Partial<Record<'style' | 'gwx', string>> = {}
   /**
    * 是否将第三方的远程插件转换变成本地离线使用
    * */
@@ -61,13 +62,63 @@ export class AppDecompilation extends BaseDecompilation {
       loadInfo[name] = this.codeInfo[name].length
     }
     console.log(loadInfo)
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    const code = this.getRuntimeCode('style') || this.getRuntimeCode('gwx')
     if (!code) {
       if (this.packType === 'main') {
         console.log(colors.red('\u274C  没有找到包特征文件'))
       }
       return
     }
+  }
+
+  private getRuntimeCodeCandidates() {
+    return [
+      { name: 'appWxss', code: this.codeInfo.appWxss },
+      { name: 'pageFrame', code: this.codeInfo.pageFrame },
+      { name: 'pageFrameHtml', code: this.codeInfo.pageFrameHtml },
+    ].filter(item => item.code?.trim())
+  }
+
+  private getRuntimeCode(type: 'style' | 'gwx'): string {
+    const cachedCode = this.runtimeCodeCache[type]
+    if (typeof cachedCode === 'string') {
+      return cachedCode
+    }
+
+    const candidates = this.getRuntimeCodeCandidates()
+    if (!candidates.length) {
+      this.runtimeCodeCache[type] = ''
+      return ''
+    }
+
+    let selected = candidates[0]
+    if (type === 'style') {
+      selected = candidates.find(item => this.isStyleRuntimeCode(item.code)) || candidates[0]
+    } else {
+      selected = candidates.find(item => this.canResolveGwxRuntimeCode(item.code)) || candidates[0]
+    }
+
+    this.runtimeCodeCache[type] = selected.code
+    return selected.code
+  }
+
+  private isStyleRuntimeCode(code: string): boolean {
+    return (
+      code.includes('setCssToHead') ||
+      code.includes('__COMMON_STYLESHEETS__') ||
+      code.includes('.wxss')
+    )
+  }
+
+  private canResolveGwxRuntimeCode(code: string): boolean {
+    if (!code.includes('$gwx') && !code.includes('.wxml')) {
+      return false
+    }
+    const { ALL_ENTRYS, ALL_DEFINES } = this.executeAllGwxFunction(code)
+    return Boolean(
+      Object.keys(ALL_ENTRYS).length ||
+      Object.keys(ALL_DEFINES).length
+    )
   }
 
   /**
@@ -351,7 +402,7 @@ export class AppDecompilation extends BaseDecompilation {
 
   private async decompileAppWXSSWithRpx() {
     const globalSetMatchReg = /setCssToHead\(.+?}\)\(\)/g
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    let code = this.getRuntimeCode('style')
     code = code.replaceAll('return rewritor;', 'return ()=> ({file, info});')
     code = code.replaceAll('__COMMON_STYLESHEETS__[', '__COMMON_STYLESHEETS_HOOK__[')
     // code = code.replaceAll('var setCssToHead', 'var __setCssToHead__')
@@ -398,7 +449,7 @@ export class AppDecompilation extends BaseDecompilation {
    * 反编译包中的 wxss 文件
    * */
   private async decompileAppWXSS() {
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    let code = this.getRuntimeCode('style')
     if (!code.trim()) return
     const vm = createVM()
     runVmCode(vm, code)
@@ -597,7 +648,8 @@ export class AppDecompilation extends BaseDecompilation {
   }
 
   private async decompileAppWXS() {
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    let code = this.getRuntimeCode('gwx')
+    if (!code) return
     const { ALL_MODULES, PLUGINS } = this.executeAllGwxFunction(code)
     const wxsRefInfo = []
     for (const wxmlPath in ALL_MODULES) {
@@ -679,7 +731,7 @@ export class AppDecompilation extends BaseDecompilation {
   }
 
   private async decompileAppWXML() {
-    let code = this.codeInfo.appWxss || this.codeInfo.pageFrame || this.codeInfo.pageFrameHtml
+    let code = this.getRuntimeCode('gwx')
     if (!code) return
     const { ALL_DEFINES, ALL_ENTRYS } = this.executeAllGwxFunction(code)
     let xPool = this._getXPool(code)
@@ -740,4 +792,3 @@ export class AppDecompilation extends BaseDecompilation {
     await this.decompileAppWorkers()
   }
 }
-
